@@ -2,8 +2,8 @@
 
 // Entry point for the 3CBlue bot.
 
-import { AtpAgent } from "@atproto/api";
 import { type BotConfig, ThreeCBlueBot } from "./bluesky-bot.js";
+import { createAgent } from "./bot.js";
 import { addJudge, createDatabase, createRound } from "./database.js";
 
 function loadConfig(): BotConfig {
@@ -29,7 +29,10 @@ function loadConfig(): BotConfig {
 async function main(): Promise<void> {
 	const config = loadConfig();
 	const db = createDatabase(config.dbPath);
-	const agent = new AtpAgent({ service: config.service });
+	const agent = await createAgent({
+		identifier: config.identifier,
+		password: config.password,
+	});
 
 	const bot = new ThreeCBlueBot(agent, db, config);
 

@@ -43,10 +43,14 @@ export {
 	checkJudgingComplete,
 } from "./round-lifecycle.js";
 export type {
+	MatchupEvaluator,
 	MatchupResultWithPlayers,
 	RoundResolutionResult,
 	StandingsEntry,
 } from "./round-lifecycle.js";
+
+export { evaluateMatchup } from "./matchup-evaluator.js";
+export type { LlmMatchupVerdict } from "./matchup-evaluator.js";
 
 export {
 	formatRevealPost,
@@ -54,3 +58,32 @@ export {
 	formatStandings,
 	formatUnresolvedMatchup,
 } from "./post-formatter.js";
+
+export {
+	renderDeckImage,
+	renderNarrativeImage,
+	renderMatchupImages,
+} from "./matchup-image.js";
+export type { NarrativeCardInput } from "./matchup-image.js";
+
+export {
+	serializeNarrative,
+	parseNarrative,
+	verdictDisplayLabel,
+} from "./matchup-narrative.js";
+export type { MatchupNarrative } from "./matchup-narrative.js";
+
+export {
+	buildDeckAgentPrompt,
+	parseAgentVerdicts,
+	crosscheckVerdicts,
+	crosscheckAllPairs,
+	flipVerdict,
+	THREE_CB_RULES,
+} from "./round-resolution-prompts.js";
+export type {
+	DeckInfo,
+	Verdict,
+	MatchupVerdict,
+	CrosscheckResult,
+} from "./round-resolution-prompts.js";

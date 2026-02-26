@@ -4,7 +4,7 @@
 // Post limit is 300 graphemes. Long content splits across thread posts.
 
 import type { DbMatchup, DbSubmission } from "./database.js";
-import type { StandingsEntry } from "./round-lifecycle.js";
+import type { LeaderboardEntry, StandingsEntry } from "./round-lifecycle.js";
 
 const MAX_POST_LENGTH = 300;
 
@@ -77,6 +77,28 @@ export function formatUnresolvedMatchup(
 	const h1 = handleMap.get(matchup.player1Did) ?? "?";
 	const reason = matchup.unresolvedReason ?? "unknown";
 	return `❓ @${h0} vs @${h1}\n\nNeeds judge: ${reason}\n\nReply with: p0 wins, p1 wins, or draw`;
+}
+
+/** Format the all-time leaderboard. */
+export function formatLeaderboard(
+	entries: readonly LeaderboardEntry[],
+	totalRounds: number,
+	handleMap: ReadonlyMap<string, string>,
+): string[] {
+	const header = `📊 Leaderboard — ${totalRounds} round${totalRounds !== 1 ? "s" : ""}\n\n`;
+	const lines: string[] = [];
+
+	for (let i = 0; i < entries.length; i++) {
+		const e = entries[i];
+		if (!e) continue;
+		const handle = handleMap.get(e.playerDid) ?? "?";
+		const record = `${e.wins}W-${e.losses}L-${e.draws}D`;
+		lines.push(
+			`${i + 1}. @${handle} — ${e.points}pts (${record}, ${e.roundsPlayed}r)`,
+		);
+	}
+
+	return splitIntoPosts(header, lines);
 }
 
 function formatOutcome(m: DbMatchup): string {
