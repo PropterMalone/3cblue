@@ -1,0 +1,20 @@
+{
+  "name": "3cblue",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "validate": "biome check --write . && npm run typecheck && npm run test",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "dev": "npm run dev --workspace=packages/engine",
+    "build": "tsc -b"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "@3cblue/engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run",
+    "dev": "node --import tsx src/main.ts"
+  },
+  "dependencies": {
+    "@3cblue/shared": "*",
+    "@atproto/api": "^0.13.0",
+    "better-sqlite3": "^11.0.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.0",
+    "tsx": "^4.0.0"
+  }
+}
