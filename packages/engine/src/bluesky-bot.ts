@@ -44,6 +44,7 @@ export interface BotConfig {
 
 export class ThreeCBlueBot {
 	private agent: AtpAgent;
+	private chatAgent: AtpAgent;
 	private db: Database.Database;
 	private config: BotConfig;
 	private lastSeenMessageTimestamp: string | undefined;
@@ -51,6 +52,11 @@ export class ThreeCBlueBot {
 
 	constructor(agent: AtpAgent, db: Database.Database, config: BotConfig) {
 		this.agent = agent;
+		// Chat API requires proxy header pointing to the chat service
+		this.chatAgent = agent.withProxy(
+			"bsky_chat",
+			"did:web:api.bsky.chat",
+		) as AtpAgent;
 		this.db = db;
 		this.config = config;
 	}
@@ -83,13 +89,13 @@ export class ThreeCBlueBot {
 
 	private async checkDirectMessages(): Promise<void> {
 		// List conversations (DM threads)
-		const convos = await this.agent.api.chat.bsky.convo.listConvos({
+		const convos = await this.chatAgent.api.chat.bsky.convo.listConvos({
 			limit: 50,
 		});
 
 		for (const convo of convos.data.convos) {
 			// Get messages in this conversation
-			const messages = await this.agent.api.chat.bsky.convo.getMessages({
+			const messages = await this.chatAgent.api.chat.bsky.convo.getMessages({
 				convoId: convo.id,
 				limit: 20,
 			});
@@ -287,7 +293,7 @@ export class ThreeCBlueBot {
 	// --- Helpers ---
 
 	private async sendDm(convoId: string, text: string): Promise<void> {
-		await this.agent.api.chat.bsky.convo.sendMessage({
+		await this.chatAgent.api.chat.bsky.convo.sendMessage({
 			convoId,
 			message: { text },
 		});
