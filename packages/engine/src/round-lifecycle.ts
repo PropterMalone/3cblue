@@ -4,30 +4,38 @@
 // Each function advances the round to the next phase and returns
 // data needed for the bot to post/DM.
 
-import {
-	type Card,
-	type MatchupResult,
-	type SearchStats,
-	simulateMatchup,
-} from "@3cblue/shared";
+import type { Card } from "@3cblue/shared";
 import type Database from "better-sqlite3";
 import {
 	type DbMatchup,
+	type DbRound,
 	type DbSubmission,
 	getActiveRound,
+	getAllCompletedMatchups,
+	getCompletedRoundCount,
+	getCompletedRoundPlayerDids,
 	getMatchupsForRound,
 	getSubmissionsForRound,
 	getUnresolvedMatchups,
 	insertMatchup,
 	updateRoundPhase,
 } from "./database.js";
+import { evaluateMatchup as defaultEvaluateMatchup } from "./matchup-evaluator.js";
 
 export interface MatchupResultWithPlayers {
 	player0Did: string;
 	player1Did: string;
-	result: MatchupResult;
-	stats: SearchStats;
+	outcome: "player0_wins" | "player1_wins" | "draw" | "unresolved";
+	reasoning: string;
 }
+
+export type MatchupEvaluator = (
+	deck0: readonly Card[],
+	deck1: readonly Card[],
+) => Promise<{
+	outcome: "player0_wins" | "player1_wins" | "draw";
+	reasoning: string;
+}>;
 
 export interface RoundResolutionResult {
 	matchups: MatchupResultWithPlayers[];
@@ -43,10 +51,18 @@ export interface StandingsEntry {
 	unresolved: number;
 }
 
+/** Check if a round's submission deadline has passed and it's still accepting submissions. */
+export function isRoundPastDeadline(round: DbRound): boolean {
+	if (round.phase !== "signup" && round.phase !== "submission") return false;
+	if (!round.submissionDeadline) return false;
+	return new Date() >= new Date(round.submissionDeadline);
+}
+
 /** Close submissions, advance to resolution phase, and run all matchups. */
-export function resolveRound(
+export async function resolveRound(
 	db: Database.Database,
-): RoundResolutionResult | { error: string } {
+	evaluator: MatchupEvaluator = defaultEvaluateMatchup,
+): Promise<RoundResolutionResult | { error: string }> {
 	const round = getActiveRound(db);
 	if (!round) return { error: "no active round" };
 	if (round.phase !== "submission" && round.phase !== "signup") {
@@ -63,7 +79,7 @@ export function resolveRound(
 	const matchups: MatchupResultWithPlayers[] = [];
 	let unresolvedCount = 0;
 
-	// Run all pairwise matchups (both directions for fairness)
+	// One LLM evaluation per pair — the prompt covers both play/draw directions
 	for (let i = 0; i < submissions.length; i++) {
 		for (let j = i + 1; j < submissions.length; j++) {
 			const sub0 = submissions[i] as DbSubmission;
@@ -71,43 +87,39 @@ export function resolveRound(
 			const deck0 = deserializeDeck(sub0);
 			const deck1 = deserializeDeck(sub1);
 
-			// Game 1: sub0 as P0, sub1 as P1
-			const g1 = simulateMatchup(deck0, deck1);
+			let outcome: "player0_wins" | "player1_wins" | "draw" | "unresolved";
+			let reasoning: string;
+			let unresolvedReason: string | null = null;
+
+			try {
+				const verdict = await evaluator(deck0, deck1);
+				outcome = verdict.outcome;
+				reasoning = verdict.reasoning;
+			} catch (err) {
+				// LLM failure degrades to unresolved — falls through to judge path
+				outcome = "unresolved";
+				reasoning = "";
+				unresolvedReason = `llm evaluation failed: ${err instanceof Error ? err.message : String(err)}`;
+				unresolvedCount++;
+			}
+
 			matchups.push({
 				player0Did: sub0.playerDid,
 				player1Did: sub1.playerDid,
-				result: g1.result,
-				stats: g1.stats,
+				outcome,
+				reasoning,
 			});
-			insertMatchup(
-				db,
-				round.id,
-				sub0.playerDid,
-				sub1.playerDid,
-				g1.result.outcome,
-				g1.result.outcome === "unresolved" ? g1.result.reason : null,
-				JSON.stringify(g1.stats),
-			);
-			if (g1.result.outcome === "unresolved") unresolvedCount++;
 
-			// Game 2: sub1 as P0, sub0 as P1
-			const g2 = simulateMatchup(deck1, deck0);
-			matchups.push({
-				player0Did: sub1.playerDid,
-				player1Did: sub0.playerDid,
-				result: g2.result,
-				stats: g2.stats,
-			});
 			insertMatchup(
 				db,
 				round.id,
-				sub1.playerDid,
 				sub0.playerDid,
-				g2.result.outcome,
-				g2.result.outcome === "unresolved" ? g2.result.reason : null,
-				JSON.stringify(g2.stats),
+				sub1.playerDid,
+				outcome,
+				unresolvedReason,
+				"{}",
+				reasoning || null,
 			);
-			if (g2.result.outcome === "unresolved") unresolvedCount++;
 		}
 	}
 
@@ -186,6 +198,76 @@ export function checkJudgingComplete(db: Database.Database): boolean {
 		return true;
 	}
 	return false;
+}
+
+export interface LeaderboardEntry {
+	playerDid: string;
+	points: number;
+	wins: number;
+	draws: number;
+	losses: number;
+	roundsPlayed: number;
+}
+
+/** Aggregate standings across all completed rounds. */
+export function computeLeaderboard(db: Database.Database): LeaderboardEntry[] {
+	const matchups = getAllCompletedMatchups(db);
+	const playerDids = getCompletedRoundPlayerDids(db);
+
+	const stats = new Map<string, LeaderboardEntry>();
+	for (const did of playerDids) {
+		stats.set(did, {
+			playerDid: did,
+			points: 0,
+			wins: 0,
+			draws: 0,
+			losses: 0,
+			roundsPlayed: 0,
+		});
+	}
+
+	// Count rounds played per player from submissions
+	const roundsPerPlayer = new Map<string, Set<number>>();
+	for (const did of playerDids) {
+		roundsPerPlayer.set(did, new Set());
+	}
+	for (const m of matchups) {
+		roundsPerPlayer.get(m.player0Did)?.add(m.roundId);
+		roundsPerPlayer.get(m.player1Did)?.add(m.roundId);
+	}
+	for (const [did, rounds] of roundsPerPlayer) {
+		const entry = stats.get(did);
+		if (entry) entry.roundsPlayed = rounds.size;
+	}
+
+	for (const m of matchups) {
+		const effectiveOutcome = m.judgeResolution ?? m.outcome;
+		const p0 = stats.get(m.player0Did);
+		const p1 = stats.get(m.player1Did);
+		if (!p0 || !p1) continue;
+
+		switch (effectiveOutcome) {
+			case "player0_wins":
+				p0.points += 3;
+				p0.wins++;
+				p1.losses++;
+				break;
+			case "player1_wins":
+				p1.points += 3;
+				p1.wins++;
+				p0.losses++;
+				break;
+			case "draw":
+				p0.points += 1;
+				p1.points += 1;
+				p0.draws++;
+				p1.draws++;
+				break;
+			// unresolved matchups in completed rounds shouldn't exist, but skip gracefully
+		}
+	}
+
+	return [...stats.values()].sort((a, b) => b.points - a.points);
 }
 
 function deserializeDeck(sub: DbSubmission): Card[] {

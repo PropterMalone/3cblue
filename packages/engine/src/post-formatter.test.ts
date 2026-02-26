@@ -2,12 +2,13 @@
 import { describe, expect, it } from "vitest";
 import type { DbMatchup, DbSubmission } from "./database.js";
 import {
+	formatLeaderboard,
 	formatMatchupResults,
 	formatRevealPost,
 	formatStandings,
 	formatUnresolvedMatchup,
 } from "./post-formatter.js";
-import type { StandingsEntry } from "./round-lifecycle.js";
+import type { LeaderboardEntry, StandingsEntry } from "./round-lifecycle.js";
 
 const handleMap = new Map([
 	["did:plc:abc", "alice.bsky.social"],
@@ -85,6 +86,8 @@ describe("formatMatchupResults", () => {
 				judgeResolution: null,
 				judgedByDid: null,
 				statsJson: "{}",
+				llmReasoning: null,
+				narrative: null,
 				postUri: null,
 			},
 		];
@@ -120,6 +123,60 @@ describe("formatStandings", () => {
 	});
 });
 
+describe("formatLeaderboard", () => {
+	it("formats leaderboard with round counts", () => {
+		const entries: LeaderboardEntry[] = [
+			{
+				playerDid: "did:plc:abc",
+				points: 15,
+				wins: 5,
+				draws: 0,
+				losses: 1,
+				roundsPlayed: 3,
+			},
+			{
+				playerDid: "did:plc:def",
+				points: 9,
+				wins: 3,
+				draws: 0,
+				losses: 3,
+				roundsPlayed: 3,
+			},
+			{
+				playerDid: "did:plc:ghi",
+				points: 4,
+				wins: 1,
+				draws: 1,
+				losses: 4,
+				roundsPlayed: 2,
+			},
+		];
+		const posts = formatLeaderboard(entries, 3, handleMap);
+		expect(posts.length).toBeGreaterThanOrEqual(1);
+		expect(posts[0]).toContain("Leaderboard");
+		expect(posts[0]).toContain("3 rounds");
+		expect(posts[0]).toContain("1. @alice.bsky.social — 15pts (5W-1L-0D, 3r)");
+		expect(posts[0]).toContain("2. @bob.bsky.social — 9pts (3W-3L-0D, 3r)");
+		expect(posts[0]).toContain("3. @charlie.bsky.social — 4pts (1W-4L-1D, 2r)");
+	});
+
+	it("uses singular 'round' for 1 round", () => {
+		const entries: LeaderboardEntry[] = [
+			{
+				playerDid: "did:plc:abc",
+				points: 3,
+				wins: 1,
+				draws: 0,
+				losses: 0,
+				roundsPlayed: 1,
+			},
+		];
+		const posts = formatLeaderboard(entries, 1, handleMap);
+		expect(posts[0]).toContain("1 round");
+		expect(posts[0]).not.toContain("1 rounds");
+	});
+});
+
 describe("formatUnresolvedMatchup", () => {
 	it("formats judge request", () => {
 		const m: DbMatchup = {
@@ -132,6 +189,8 @@ describe("formatUnresolvedMatchup", () => {
 			judgeResolution: null,
 			judgedByDid: null,
 			statsJson: "{}",
+			llmReasoning: null,
+			narrative: null,
 			postUri: null,
 		};
 		const text = formatUnresolvedMatchup(m, handleMap);

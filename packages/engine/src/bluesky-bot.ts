@@ -1,13 +1,24 @@
 // pattern: Imperative Shell
 
 // Bluesky bot for 3CBlue. Handles DMs (deck submissions) and posts (reveals, results).
-// Uses @atproto/api for all ATProto interactions.
+// Uses propter-bsky-kit for all ATProto interactions.
 
-import { type AtpAgent, RichText } from "@atproto/api";
+import type { AtpAgent, BlobRef } from "@atproto/api";
 import type Database from "better-sqlite3";
 import {
+	buildFacets,
+	createBlueskyDmSender,
+	createChatAgent,
+	pollInboundDms,
+	postMessage,
+	replyToPost,
+} from "./bot.js";
+import type { DmSender, PostRef } from "./bot.js";
+import {
+	type DbMatchup,
 	type DbSubmission,
 	getActiveRound,
+	getCompletedRoundCount,
 	getPlayer,
 	getSubmissionsForRound,
 	getUnresolvedMatchups,
@@ -22,7 +33,10 @@ import {
 	parseCardNames,
 	validateDeck,
 } from "./deck-validation.js";
+import { renderMatchupImages } from "./matchup-image.js";
+import { parseNarrative, verdictDisplayLabel } from "./matchup-narrative.js";
 import {
+	formatLeaderboard,
 	formatMatchupResults,
 	formatRevealPost,
 	formatStandings,
@@ -30,7 +44,9 @@ import {
 } from "./post-formatter.js";
 import {
 	checkJudgingComplete,
+	computeLeaderboard,
 	computeStandings,
+	isRoundPastDeadline,
 	resolveRound,
 } from "./round-lifecycle.js";
 
@@ -44,28 +60,21 @@ export interface BotConfig {
 
 export class ThreeCBlueBot {
 	private agent: AtpAgent;
-	private chatAgent: AtpAgent;
+	private dm: DmSender;
 	private db: Database.Database;
 	private config: BotConfig;
-	private lastSeenMessageTimestamp: string | undefined;
+	private dmMessageId: string | undefined;
 	private running = false;
 
 	constructor(agent: AtpAgent, db: Database.Database, config: BotConfig) {
 		this.agent = agent;
-		// Chat API requires proxy header pointing to the chat service
-		this.chatAgent = agent.withProxy(
-			"bsky_chat",
-			"did:web:api.bsky.chat",
-		) as AtpAgent;
+		const chatAgent = createChatAgent(agent);
+		this.dm = createBlueskyDmSender(chatAgent);
 		this.db = db;
 		this.config = config;
 	}
 
 	async start(): Promise<void> {
-		await this.agent.login({
-			identifier: this.config.identifier,
-			password: this.config.password,
-		});
 		this.running = true;
 		this.poll();
 	}
@@ -78,6 +87,7 @@ export class ThreeCBlueBot {
 		while (this.running) {
 			try {
 				await this.checkDirectMessages();
+				await this.checkRoundDeadlines();
 			} catch (err) {
 				console.error("poll error:", err);
 			}
@@ -87,46 +97,53 @@ export class ThreeCBlueBot {
 		}
 	}
 
-	private async checkDirectMessages(): Promise<void> {
-		// List conversations (DM threads)
-		const convos = await this.chatAgent.api.chat.bsky.convo.listConvos({
-			limit: 50,
-		});
+	private async checkRoundDeadlines(): Promise<void> {
+		const round = getActiveRound(this.db);
+		if (!round || !isRoundPastDeadline(round)) return;
 
-		for (const convo of convos.data.convos) {
-			// Get messages in this conversation
-			const messages = await this.chatAgent.api.chat.bsky.convo.getMessages({
-				convoId: convo.id,
-				limit: 20,
-			});
+		console.log(`round ${round.id} deadline passed, resolving...`);
 
-			for (const msg of messages.data.messages) {
-				if (msg.$type !== "chat.bsky.convo.defs#messageView") continue;
-				if (!("text" in msg)) continue;
-
-				// Skip messages we've already processed
-				const sentAt = msg.sentAt as string;
-				if (
-					this.lastSeenMessageTimestamp &&
-					sentAt <= this.lastSeenMessageTimestamp
-				) {
-					continue;
-				}
-
-				// Skip our own messages
-				const senderDid = (msg.sender as { did: string }).did;
-				if (senderDid === this.agent.session?.did) continue;
-
-				await this.handleDirectMessage(convo.id, senderDid, msg.text as string);
-			}
+		const result = await resolveRound(this.db);
+		if ("error" in result) {
+			console.error(`failed to resolve round ${round.id}: ${result.error}`);
+			return;
 		}
 
-		// Update timestamp to avoid re-processing
-		this.lastSeenMessageTimestamp = new Date().toISOString();
+		const revealUri = await this.postReveal(round.id);
+		if (revealUri) {
+			updateRoundPostUri(this.db, round.id, revealUri);
+		}
+
+		await this.postResults(round.id);
+
+		if (result.unresolvedCount > 0) {
+			await this.postUnresolvedMatchups(round.id);
+			console.log(
+				`round ${round.id}: ${result.unresolvedCount} unresolved matchups — waiting for judges`,
+			);
+		} else {
+			await this.postLeaderboard();
+			console.log(`round ${round.id} complete — leaderboard posted`);
+		}
+	}
+
+	private async checkDirectMessages(): Promise<void> {
+		const chatAgent = createChatAgent(this.agent);
+		const { messages, latestMessageId } = await pollInboundDms(
+			chatAgent,
+			this.dmMessageId,
+		);
+
+		for (const msg of messages) {
+			await this.handleDirectMessage(msg.senderDid, msg.text);
+		}
+
+		if (latestMessageId) {
+			this.dmMessageId = latestMessageId;
+		}
 	}
 
 	private async handleDirectMessage(
-		convoId: string,
 		senderDid: string,
 		text: string,
 	): Promise<void> {
@@ -134,30 +151,29 @@ export class ThreeCBlueBot {
 
 		// Judge resolution command
 		if (trimmed.startsWith("judge ")) {
-			await this.handleJudgeCommand(convoId, senderDid, text);
+			await this.handleJudgeCommand(senderDid, text);
 			return;
 		}
 
 		// Treat as deck submission
-		await this.handleDeckSubmission(convoId, senderDid, text);
+		await this.handleDeckSubmission(senderDid, text);
 	}
 
 	private async handleDeckSubmission(
-		convoId: string,
 		senderDid: string,
 		text: string,
 	): Promise<void> {
 		const round = getActiveRound(this.db);
 		if (!round) {
-			await this.sendDm(
-				convoId,
+			await this.dm.sendDm(
+				senderDid,
 				"no active round right now. wait for the next one!",
 			);
 			return;
 		}
 		if (round.phase !== "signup" && round.phase !== "submission") {
-			await this.sendDm(
-				convoId,
+			await this.dm.sendDm(
+				senderDid,
 				`round ${round.id} is in ${round.phase} phase — submissions are closed.`,
 			);
 			return;
@@ -165,8 +181,8 @@ export class ThreeCBlueBot {
 
 		const cardNames = parseCardNames(text);
 		if (cardNames.length !== 3) {
-			await this.sendDm(
-				convoId,
+			await this.dm.sendDm(
+				senderDid,
 				`expected 3 card names (one per line), got ${cardNames.length}. example:\n\nLightning Bolt\nSnapcaster Mage\nDelver of Secrets`,
 			);
 			return;
@@ -175,8 +191,8 @@ export class ThreeCBlueBot {
 		const validation = await validateDeck(cardNames);
 		if (!validation.ok) {
 			const errorList = validation.errors.map((e) => `• ${e}`).join("\n");
-			await this.sendDm(
-				convoId,
+			await this.dm.sendDm(
+				senderDid,
 				`deck submission failed:\n\n${errorList}\n\nfix and resend.`,
 			);
 			return;
@@ -208,19 +224,18 @@ export class ThreeCBlueBot {
 				? `\n\n⚠️ engine can't fully simulate: ${unresolvedCards.map((c) => c.name).join(", ")}. those matchups will need a judge.`
 				: "";
 
-		await this.sendDm(
-			convoId,
+		await this.dm.sendDm(
+			senderDid,
 			`✅ deck submitted for round ${round.id}: ${names}\n\nyou can resend to update your deck before the deadline.${warning}`,
 		);
 	}
 
 	private async handleJudgeCommand(
-		convoId: string,
 		senderDid: string,
 		text: string,
 	): Promise<void> {
 		if (!isJudge(this.db, senderDid)) {
-			await this.sendDm(convoId, "you're not a designated judge.");
+			await this.dm.sendDm(senderDid, "you're not a designated judge.");
 			return;
 		}
 
@@ -229,8 +244,8 @@ export class ThreeCBlueBot {
 			.trim()
 			.match(/^judge\s+(\d+)\s+(p0 wins|p1 wins|draw)$/i);
 		if (!match || !match[1] || !match[2]) {
-			await this.sendDm(
-				convoId,
+			await this.dm.sendDm(
+				senderDid,
 				"format: judge <matchup_id> <p0 wins|p1 wins|draw>",
 			);
 			return;
@@ -243,14 +258,22 @@ export class ThreeCBlueBot {
 			.replace("p0_wins", "player0_wins")
 			.replace("p1_wins", "player1_wins");
 
+		const round = getActiveRound(this.db);
 		resolveMatchup(this.db, matchupId, normalized, senderDid);
-		await this.sendDm(
-			convoId,
+		await this.dm.sendDm(
+			senderDid,
 			`matchup ${matchupId} resolved as: ${normalized}`,
 		);
 
-		// Check if all unresolved matchups are done
-		checkJudgingComplete(this.db);
+		// If all unresolved matchups are now judged, post final results + leaderboard
+		const complete = checkJudgingComplete(this.db);
+		if (complete && round) {
+			await this.postResults(round.id);
+			await this.postLeaderboard();
+			console.log(
+				`round ${round.id} judging complete — final results + leaderboard posted`,
+			);
+		}
 	}
 
 	// --- Public post methods ---
@@ -264,6 +287,14 @@ export class ThreeCBlueBot {
 
 	async postResults(roundId: number): Promise<string | undefined> {
 		const matchups = await this.getMatchupsForRound(roundId);
+		const hasNarratives = matchups.some((m) => m.narrative);
+
+		// Use image posts when narratives are available (from /resolve-round)
+		if (hasNarratives) {
+			return this.postResultsWithImages(roundId);
+		}
+
+		// Fall back to text-only posts
 		const allDids = [
 			...new Set(matchups.flatMap((m) => [m.player0Did, m.player1Did])),
 		];
@@ -277,6 +308,15 @@ export class ThreeCBlueBot {
 		return this.postThread(allPosts);
 	}
 
+	async postLeaderboard(): Promise<string | undefined> {
+		const entries = computeLeaderboard(this.db);
+		if (entries.length === 0) return undefined;
+		const totalRounds = getCompletedRoundCount(this.db);
+		const handleMap = this.buildHandleMap(entries.map((e) => e.playerDid));
+		const posts = formatLeaderboard(entries, totalRounds, handleMap);
+		return this.postThread(posts);
+	}
+
 	async postUnresolvedMatchups(roundId: number): Promise<void> {
 		const unresolved = getUnresolvedMatchups(this.db, roundId);
 		const allDids = [
@@ -286,56 +326,176 @@ export class ThreeCBlueBot {
 
 		for (const m of unresolved) {
 			const text = formatUnresolvedMatchup(m, handleMap);
-			await this.createPost(text);
+			const ref = await postMessage(this.agent, text);
+			if (!ref) {
+				console.error("failed to post unresolved matchup");
+			}
 		}
 	}
 
-	// --- Helpers ---
+	/** Post a single matchup with deck images + narrative card. */
+	async postMatchupWithImages(
+		matchup: DbMatchup,
+		submissions: readonly DbSubmission[],
+		handleMap: ReadonlyMap<string, string>,
+		parentRef?: PostRef,
+		rootRef?: PostRef,
+	): Promise<PostRef | undefined> {
+		const sub0 = submissions.find((s) => s.playerDid === matchup.player0Did);
+		const sub1 = submissions.find((s) => s.playerDid === matchup.player1Did);
+		if (!sub0 || !sub1) return undefined;
 
-	private async sendDm(convoId: string, text: string): Promise<void> {
-		await this.chatAgent.api.chat.bsky.convo.sendMessage({
-			convoId,
-			message: { text },
-		});
-	}
+		const h0 = handleMap.get(matchup.player0Did) ?? "?";
+		const h1 = handleMap.get(matchup.player1Did) ?? "?";
+		const outcome = matchup.judgeResolution ?? matchup.outcome;
 
-	private async createPost(text: string): Promise<string | undefined> {
-		const rt = new RichText({ text });
-		await rt.detectFacets(this.agent);
-		const response = await this.agent.post({
-			text: rt.text,
-			facets: rt.facets,
-		});
-		return response.uri;
-	}
+		const verdictLabel = verdictDisplayLabel(outcome, h0, h1);
 
-	private async postThread(posts: string[]): Promise<string | undefined> {
-		let parentRef: { uri: string; cid: string } | undefined;
-		let rootRef: { uri: string; cid: string } | undefined;
-		let firstUri: string | undefined;
+		// Parse structured narrative JSON, or fall back to plain text
+		const narrative = matchup.narrative
+			? parseNarrative(matchup.narrative)
+			: null;
+		const playVerdict = narrative
+			? verdictDisplayLabel(narrative.onPlayVerdict, h0, h1)
+			: verdictLabel;
+		const drawVerdict = narrative
+			? verdictDisplayLabel(narrative.onDrawVerdict, h0, h1)
+			: verdictLabel;
+		const playNarrative = narrative?.playNarrative ?? matchup.narrative ?? "";
+		const drawNarrative = narrative?.drawNarrative ?? "";
 
-		for (const text of posts) {
-			const rt = new RichText({ text });
-			await rt.detectFacets(this.agent);
+		try {
+			const images = await renderMatchupImages({
+				handle0: h0,
+				handle1: h1,
+				cardNames0: [sub0.card1Name, sub0.card2Name, sub0.card3Name],
+				cardNames1: [sub1.card1Name, sub1.card2Name, sub1.card3Name],
+				verdict: verdictLabel,
+				onPlayVerdict: playVerdict,
+				onDrawVerdict: drawVerdict,
+				playNarrative,
+				drawNarrative,
+			});
+
+			const [blob0, blob1, blobNarrative] = await Promise.all([
+				this.uploadImage(images.deck0),
+				this.uploadImage(images.deck1),
+				this.uploadImage(images.narrative),
+			]);
+
+			const caption = `@${h0} vs @${h1}: ${verdictLabel}`;
+			const { text, facets } = await buildFacets(this.agent, caption);
 
 			const response = await this.agent.post({
-				text: rt.text,
-				facets: rt.facets,
+				text,
+				facets,
+				embed: {
+					$type: "app.bsky.embed.images",
+					images: [
+						{
+							image: blob0,
+							alt: `${h0}'s deck: ${sub0.card1Name}, ${sub0.card2Name}, ${sub0.card3Name}`,
+						},
+						{
+							image: blob1,
+							alt: `${h1}'s deck: ${sub1.card1Name}, ${sub1.card2Name}, ${sub1.card3Name}`,
+						},
+						{
+							image: blobNarrative,
+							alt: `Matchup analysis: ${verdictLabel}. ${playNarrative}`,
+						},
+					],
+				},
 				reply:
 					parentRef && rootRef
 						? { parent: parentRef, root: rootRef }
 						: undefined,
 			});
 
-			const ref = { uri: response.uri, cid: response.cid };
-			if (!rootRef) {
-				rootRef = ref;
-				firstUri = response.uri;
+			return { uri: response.uri, cid: response.cid };
+		} catch (err) {
+			console.error(`failed to render/post matchup images: ${err}`);
+			// Fall back to text-only post
+			const caption = `@${h0} vs @${h1}: ${verdictLabel}`;
+			const { text, facets } = await buildFacets(this.agent, caption);
+			const response = await this.agent.post({
+				text,
+				facets,
+				reply:
+					parentRef && rootRef
+						? { parent: parentRef, root: rootRef }
+						: undefined,
+			});
+			return { uri: response.uri, cid: response.cid };
+		}
+	}
+
+	/** Post all matchup results as image posts in a thread. */
+	async postResultsWithImages(roundId: number): Promise<string | undefined> {
+		const matchups = await this.getMatchupsForRound(roundId);
+		const submissions = getSubmissionsForRound(this.db, roundId);
+		const allDids = [
+			...new Set(matchups.flatMap((m) => [m.player0Did, m.player1Did])),
+		];
+		const handleMap = this.buildHandleMap(allDids);
+
+		let rootRef: PostRef | undefined;
+		let parentRef: PostRef | undefined;
+		let firstUri: string | undefined;
+
+		for (const matchup of matchups) {
+			const ref = await this.postMatchupWithImages(
+				matchup,
+				submissions,
+				handleMap,
+				parentRef,
+				rootRef,
+			);
+			if (ref) {
+				if (!rootRef) {
+					rootRef = ref;
+					firstUri = ref.uri;
+				}
+				parentRef = ref;
 			}
-			parentRef = ref;
+		}
+
+		// Post standings as final text reply in thread
+		const standings = computeStandings(this.db, roundId);
+		const standingsPost = formatStandings(roundId, standings, handleMap);
+		if (parentRef && rootRef) {
+			await replyToPost(this.agent, standingsPost, parentRef, rootRef);
 		}
 
 		return firstUri;
+	}
+
+	// --- Helpers ---
+
+	private async uploadImage(imageBuffer: Buffer): Promise<BlobRef> {
+		const response = await this.agent.uploadBlob(imageBuffer, {
+			encoding: "image/png",
+		});
+		return response.data.blob;
+	}
+
+	private async postThread(posts: string[]): Promise<string | undefined> {
+		if (posts.length === 0) return undefined;
+
+		const firstRef = await postMessage(this.agent, posts[0]!);
+		if (!firstRef) return undefined;
+
+		let parentRef: PostRef = firstRef;
+		const rootRef: PostRef = firstRef;
+
+		for (let i = 1; i < posts.length; i++) {
+			const ref = await replyToPost(this.agent, posts[i]!, parentRef, rootRef);
+			if (ref) {
+				parentRef = ref;
+			}
+		}
+
+		return firstRef.uri;
 	}
 
 	private async getMatchupsForRound(roundId: number) {

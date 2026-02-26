@@ -48,7 +48,9 @@ export interface DbMatchup {
 	unresolvedReason: string | null;
 	judgeResolution: string | null; // "player0_wins" | "player1_wins" | "draw"
 	judgedByDid: string | null;
-	statsJson: string; // serialized SearchStats
+	statsJson: string; // serialized SearchStats or LLM metadata
+	llmReasoning: string | null;
+	narrative: string | null; // player-facing play-by-play for posting
 	postUri: string | null;
 }
 
@@ -101,6 +103,8 @@ function initSchema(db: Database.Database): void {
 			judge_resolution TEXT,
 			judged_by_did TEXT REFERENCES players(did),
 			stats_json TEXT NOT NULL,
+			llm_reasoning TEXT,
+			narrative TEXT,
 			post_uri TEXT
 		);
 
@@ -246,11 +250,13 @@ export function insertMatchup(
 	outcome: string,
 	unresolvedReason: string | null,
 	statsJson: string,
+	llmReasoning?: string | null,
+	narrative?: string | null,
 ): DbMatchup {
 	const row = db
 		.prepare(
-			`INSERT INTO matchups (round_id, player0_did, player1_did, outcome, unresolved_reason, stats_json)
-			 VALUES (?, ?, ?, ?, ?, ?) RETURNING *`,
+			`INSERT INTO matchups (round_id, player0_did, player1_did, outcome, unresolved_reason, stats_json, llm_reasoning, narrative)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
 		)
 		.get(
 			roundId,
@@ -259,6 +265,8 @@ export function insertMatchup(
 			outcome,
 			unresolvedReason,
 			statsJson,
+			llmReasoning ?? null,
+			narrative ?? null,
 		) as Record<string, unknown>;
 	return mapMatchup(row);
 }
@@ -294,6 +302,38 @@ export function getUnresolvedMatchups(
 		)
 		.all(roundId) as Record<string, unknown>[];
 	return rows.map(mapMatchup);
+}
+
+/** All matchups from completed rounds, for leaderboard aggregation. */
+export function getAllCompletedMatchups(db: Database.Database): DbMatchup[] {
+	const rows = db
+		.prepare(
+			`SELECT m.* FROM matchups m
+			 JOIN rounds r ON m.round_id = r.id
+			 WHERE r.phase = 'complete'`,
+		)
+		.all() as Record<string, unknown>[];
+	return rows.map(mapMatchup);
+}
+
+/** All unique player DIDs who have submitted in completed rounds. */
+export function getCompletedRoundPlayerDids(db: Database.Database): string[] {
+	const rows = db
+		.prepare(
+			`SELECT DISTINCT s.player_did FROM submissions s
+			 JOIN rounds r ON s.round_id = r.id
+			 WHERE r.phase = 'complete'`,
+		)
+		.all() as Record<string, unknown>[];
+	return rows.map((r) => r.player_did as string);
+}
+
+/** Count of completed rounds. */
+export function getCompletedRoundCount(db: Database.Database): number {
+	const row = db
+		.prepare("SELECT COUNT(*) as count FROM rounds WHERE phase = 'complete'")
+		.get() as { count: number };
+	return row.count;
 }
 
 // --- Judge operations ---
@@ -354,6 +394,8 @@ function mapMatchup(row: Record<string, unknown>): DbMatchup {
 		judgeResolution: row.judge_resolution as string | null,
 		judgedByDid: row.judged_by_did as string | null,
 		statsJson: row.stats_json as string,
+		llmReasoning: row.llm_reasoning as string | null,
+		narrative: row.narrative as string | null,
 		postUri: row.post_uri as string | null,
 	};
 }
