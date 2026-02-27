@@ -32,7 +32,7 @@ describe("rounds", () => {
 	it("creates a round with deadline", () => {
 		const round = createRound(db, 24);
 		expect(round.id).toBe(1);
-		expect(round.phase).toBe("signup");
+		expect(round.phase).toBe("submission");
 		expect(round.submissionDeadline).toBeTruthy();
 	});
 

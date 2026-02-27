@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import type { DbMatchup, DbSubmission } from "./database.js";
 import {
+	formatAnnouncementPost,
 	formatLeaderboard,
 	formatMatchupResults,
 	formatRevealPost,
@@ -35,6 +36,22 @@ function makeSub(
 		submittedAt: "",
 	};
 }
+
+describe("formatAnnouncementPost", () => {
+	it("includes round id and deadline", () => {
+		const deadline = new Date("2026-03-01T18:00:00Z");
+		const text = formatAnnouncementPost(5, deadline);
+		expect(text).toContain("Round 5");
+		expect(text).toContain("DM me your 3-card deck");
+		expect(text).toContain("Mar");
+	});
+
+	it("fits within post limit", () => {
+		const deadline = new Date("2026-03-01T18:00:00Z");
+		const text = formatAnnouncementPost(1, deadline);
+		expect(text.length).toBeLessThanOrEqual(300);
+	});
+});
 
 describe("formatRevealPost", () => {
 	it("formats player decks", () => {
