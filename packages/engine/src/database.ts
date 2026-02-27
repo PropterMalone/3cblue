@@ -4,12 +4,7 @@
 
 import Database from "better-sqlite3";
 
-export type RoundPhase =
-	| "signup"
-	| "submission"
-	| "resolution"
-	| "judging"
-	| "complete";
+export type RoundPhase = "submission" | "resolution" | "judging" | "complete";
 
 export interface DbRound {
 	id: number;
@@ -66,7 +61,7 @@ function initSchema(db: Database.Database): void {
 	db.exec(`
 		CREATE TABLE IF NOT EXISTS rounds (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			phase TEXT NOT NULL DEFAULT 'signup',
+			phase TEXT NOT NULL DEFAULT 'submission',
 			created_at TEXT NOT NULL DEFAULT (datetime('now')),
 			submission_deadline TEXT,
 			post_uri TEXT
@@ -126,7 +121,7 @@ export function createRound(
 	).toISOString();
 
 	const stmt = db.prepare(
-		"INSERT INTO rounds (phase, submission_deadline) VALUES ('signup', ?) RETURNING *",
+		"INSERT INTO rounds (phase, submission_deadline) VALUES ('submission', ?) RETURNING *",
 	);
 	const row = stmt.get(deadline) as Record<string, unknown>;
 	return mapRound(row);

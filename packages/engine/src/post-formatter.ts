@@ -8,6 +8,22 @@ import type { LeaderboardEntry, StandingsEntry } from "./round-lifecycle.js";
 
 const MAX_POST_LENGTH = 300;
 
+/** Format the announcement post when a new round starts. */
+export function formatAnnouncementPost(
+	roundId: number,
+	deadline: Date,
+): string {
+	const deadlineStr = deadline.toLocaleString("en-US", {
+		weekday: "short",
+		month: "short",
+		day: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+		timeZoneName: "short",
+	});
+	return `📣 3CB Round ${roundId} is open!\n\nDM me your 3-card deck (one card per line) by ${deadlineStr}.\n\nAll of Magic is legal. Best-play search, both directions. Unresolvable matchups go to judges.`;
+}
+
 /** Format the reveal post showing all players' decks. */
 export function formatRevealPost(
 	roundId: number,

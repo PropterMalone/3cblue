@@ -89,7 +89,7 @@ export class ThreeCBlueBot {
 				await this.checkDirectMessages();
 				await this.checkRoundDeadlines();
 			} catch (err) {
-				console.error("poll error:", err);
+				console.error("[bot] poll error:", err);
 			}
 			await new Promise((resolve) =>
 				setTimeout(resolve, this.config.pollIntervalMs),
@@ -101,11 +101,13 @@ export class ThreeCBlueBot {
 		const round = getActiveRound(this.db);
 		if (!round || !isRoundPastDeadline(round)) return;
 
-		console.log(`round ${round.id} deadline passed, resolving...`);
+		console.log(`[round] round ${round.id} deadline passed, resolving...`);
 
 		const result = await resolveRound(this.db);
 		if ("error" in result) {
-			console.error(`failed to resolve round ${round.id}: ${result.error}`);
+			console.error(
+				`[round] failed to resolve round ${round.id}: ${result.error}`,
+			);
 			return;
 		}
 
@@ -119,11 +121,11 @@ export class ThreeCBlueBot {
 		if (result.unresolvedCount > 0) {
 			await this.postUnresolvedMatchups(round.id);
 			console.log(
-				`round ${round.id}: ${result.unresolvedCount} unresolved matchups — waiting for judges`,
+				`[round] round ${round.id}: ${result.unresolvedCount} unresolved matchups — waiting for judges`,
 			);
 		} else {
 			await this.postLeaderboard();
-			console.log(`round ${round.id} complete — leaderboard posted`);
+			console.log(`[round] round ${round.id} complete — leaderboard posted`);
 		}
 	}
 
@@ -171,7 +173,7 @@ export class ThreeCBlueBot {
 			);
 			return;
 		}
-		if (round.phase !== "signup" && round.phase !== "submission") {
+		if (round.phase !== "submission") {
 			await this.dm.sendDm(
 				senderDid,
 				`round ${round.id} is in ${round.phase} phase — submissions are closed.`,
@@ -271,12 +273,17 @@ export class ThreeCBlueBot {
 			await this.postResults(round.id);
 			await this.postLeaderboard();
 			console.log(
-				`round ${round.id} judging complete — final results + leaderboard posted`,
+				`[judge] round ${round.id} judging complete — final results + leaderboard posted`,
 			);
 		}
 	}
 
 	// --- Public post methods ---
+
+	async postAnnouncement(text: string): Promise<string | undefined> {
+		const ref = await postMessage(this.agent, text);
+		return ref?.uri;
+	}
 
 	async postReveal(roundId: number): Promise<string | undefined> {
 		const submissions = getSubmissionsForRound(this.db, roundId);
@@ -328,7 +335,7 @@ export class ThreeCBlueBot {
 			const text = formatUnresolvedMatchup(m, handleMap);
 			const ref = await postMessage(this.agent, text);
 			if (!ref) {
-				console.error("failed to post unresolved matchup");
+				console.error("[post] failed to post unresolved matchup");
 			}
 		}
 	}
@@ -414,7 +421,7 @@ export class ThreeCBlueBot {
 
 			return { uri: response.uri, cid: response.cid };
 		} catch (err) {
-			console.error(`failed to render/post matchup images: ${err}`);
+			console.error(`[post] failed to render/post matchup images: ${err}`);
 			// Fall back to text-only post
 			const caption = `@${h0} vs @${h1}: ${verdictLabel}`;
 			const { text, facets } = await buildFacets(this.agent, caption);

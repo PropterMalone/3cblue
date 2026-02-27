@@ -53,7 +53,7 @@ export interface StandingsEntry {
 
 /** Check if a round's submission deadline has passed and it's still accepting submissions. */
 export function isRoundPastDeadline(round: DbRound): boolean {
-	if (round.phase !== "signup" && round.phase !== "submission") return false;
+	if (round.phase !== "submission") return false;
 	if (!round.submissionDeadline) return false;
 	return new Date() >= new Date(round.submissionDeadline);
 }
@@ -65,7 +65,7 @@ export async function resolveRound(
 ): Promise<RoundResolutionResult | { error: string }> {
 	const round = getActiveRound(db);
 	if (!round) return { error: "no active round" };
-	if (round.phase !== "submission" && round.phase !== "signup") {
+	if (round.phase !== "submission") {
 		return { error: `round is in ${round.phase} phase, not submission` };
 	}
 

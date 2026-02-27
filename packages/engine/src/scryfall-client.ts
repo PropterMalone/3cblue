@@ -19,7 +19,18 @@ async function throttledFetch(url: string): Promise<Response> {
 		);
 	}
 	lastRequestTime = Date.now();
-	return fetch(url);
+	const response = await fetch(url);
+
+	if (response.status === 429) {
+		const retryAfter = response.headers.get("retry-after");
+		const waitMs = retryAfter ? Number.parseInt(retryAfter, 10) * 1000 : 1000;
+		console.log(`[scryfall] 429 rate limited, retrying in ${waitMs}ms`);
+		await new Promise((resolve) => setTimeout(resolve, waitMs));
+		lastRequestTime = Date.now();
+		return fetch(url);
+	}
+
+	return response;
 }
 
 export type CardLookupResult =
