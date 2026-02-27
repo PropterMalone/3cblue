@@ -90,7 +90,9 @@ For each matchup, produce:
 
 Narratives: 1-2 sentences describing the key plays, written for Magic players.
 Keep each narrative under 200 characters.
-Think step by step about mana, interaction timing, and combat math.
+Think step by step about mana sequencing, interaction timing, and combat math.
+
+Players play to win if they can. If they have no line that wins, they play to force a draw instead. If they have no line that wins or draws, they lose.
 
 ## Output Format (follow exactly)
 `);
