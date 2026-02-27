@@ -93,6 +93,8 @@ These will be shown to players alongside card images.
 
 Think step by step about mana sequencing, interaction timing, and combat math.
 
+Players play to win if they can. If they have no line that wins, they play to force a draw instead. If they have no line that wins or draws, they lose.
+
 ## Output Format (follow EXACTLY)
 
 ### vs @{opponent_handle}
