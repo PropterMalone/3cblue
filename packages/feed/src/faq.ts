@@ -70,6 +70,7 @@ Delver of Secrets
   <li><strong>Worst-outcome convention</strong> — coin flips, dice rolls, and random effects resolve to the worst outcome for the controller.</li>
   <li><strong>No turn cap</strong> — games end at 0 life, 10 poison, alt-win conditions, or stalemate (no winning line exists for either player).</li>
   <li><strong>Duplicates are fine</strong> — you can submit 3 copies of the same card.</li>
+  <li><strong>Winner's cards are banned</strong> — all 3 cards from each round-winning deck are banned for future rounds. Keeps the meta fresh.</li>
 </ul>
 
 <h2>Judges</h2>

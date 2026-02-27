@@ -1,6 +1,6 @@
 # 3CBlue — Three Card Blind on Bluesky
 
-Last verified: 2026-02-26
+Last verified: 2026-02-27
 
 ## What Is This
 
@@ -12,6 +12,7 @@ MTG Three Card Blind played on Bluesky. Players DM 3-card decks to the bot. Bot 
 - SQLite for persistence
 - Scryfall API for card data + card images
 - Sharp for image compositing (matchup report images)
+- propter-bsky-kit (PBK) for all Bluesky I/O — posting, DMs, facets, threading, feed server + FAQ
 - Deploy: Docker + Tailscale Funnel on Malone (future)
 
 ## Commands
@@ -29,6 +30,7 @@ MTG Three Card Blind played on Bluesky. Players DM 3-card decks to the bot. Bot 
 - **No turn cap** — games end at 0 life, poison, alt-win, or stalemate (no winning line exists for either side)
 - **Worst-outcome convention** — coin flips, dice rolls resolve to worst outcome for controller
 - **`?` results** — engine flags unresolvable interactions with board state context; designated judges resolve
+- **Winner's cards banned** — all 3 cards from each round-winning deck are banned for future rounds
 
 ### Architecture
 - **LLM matchup evaluation** — Claude API evaluates each matchup given oracle text + 3CB rules. Prompt covers both play/draw directions in one call. Default model: Sonnet, configurable via `ANTHROPIC_MODEL` env var.
@@ -84,8 +86,14 @@ packages/
 # Start the bot (polls for DMs)
 BSKY_IDENTIFIER=3cblue.bsky.social BSKY_PASSWORD=... node dist/main.js
 
-# Create a new round (24h deadline)
+# Create a new round (24h deadline) — posts announcement to Bluesky
 node dist/main.js start 24
+
+# Check current round status
+node dist/main.js status
+
+# Post results + leaderboard (after /resolve-round)
+node dist/main.js post-results
 
 # Add a judge
 node dist/main.js add-judge did:plc:...
