@@ -1,0 +1,113 @@
+/** Static FAQ page served at /faq */
+
+export const FAQ_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3CBlue — Three Card Blind on Bluesky</title>
+<style>
+  :root { --bg: #0d1117; --fg: #e6edf3; --accent: #4a9eff; --dim: #8b949e; --card: #161b22; --border: #30363d; --gold: #e5a832; --green: #3fb950; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: var(--bg); color: var(--fg); line-height: 1.6; padding: 2rem 1rem; max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+  h1 span { color: var(--dim); font-weight: normal; font-size: 1rem; }
+  h2 { color: var(--accent); font-size: 1.2rem; margin: 2rem 0 0.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+  p, li { color: var(--fg); margin-bottom: 0.5rem; }
+  ul, ol { padding-left: 1.5rem; }
+  code { background: var(--card); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.9em; color: var(--accent); }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin: 0.75rem 0; }
+  .card strong { color: var(--accent); }
+  a { color: var(--accent); }
+  footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--dim); font-size: 0.85rem; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+  th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--border); }
+  th { color: var(--accent); font-size: 0.85rem; text-transform: uppercase; }
+  .pts { color: var(--gold); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<h1>🃏 3CBlue <span>Three Card Blind on Bluesky</span></h1>
+
+<p>3CBlue runs games of <strong>Three Card Blind</strong> — a deckbuilding metagame format for Magic: The Gathering — entirely through Bluesky DMs and posts.</p>
+
+<h2>Quick Start</h2>
+<ol>
+  <li>Wait for a round announcement (or follow <code>@3cblue.bsky.social</code> to catch them)</li>
+  <li>DM the bot 3 card names, one per line:</li>
+</ol>
+<div class="card">
+Lightning Bolt<br>
+Snapcaster Mage<br>
+Delver of Secrets
+</div>
+<ul>
+  <li>Bot confirms your deck or tells you what's wrong</li>
+  <li>You can resend to update your deck any time before the deadline</li>
+  <li>After the deadline, all matchups are evaluated and results posted publicly</li>
+</ul>
+
+<h2>How It Works</h2>
+<p>Each round is a <strong>round-robin tournament</strong>. Every submitted deck plays against every other deck. Both sides play optimally — no misplays, no bluffing. The bot evaluates each matchup assuming perfect information and best play from both players.</p>
+
+<p>Each matchup is evaluated in both directions: you on the play, and you on the draw. If one player wins regardless of who goes first, they win the matchup. If the result depends on who goes first (each player wins on the play), it's a draw.</p>
+
+<h2>Scoring</h2>
+<table>
+  <tr><th>Result</th><th>Points</th></tr>
+  <tr><td>Win</td><td class="pts">3</td></tr>
+  <tr><td>Draw</td><td class="pts">1</td></tr>
+  <tr><td>Loss</td><td class="pts">0</td></tr>
+</table>
+<p>Standings are ranked by total points. An all-time leaderboard tracks cumulative results across rounds.</p>
+
+<h2>Rules</h2>
+<ul>
+  <li><strong>3-card hand, no library</strong> — you start with all 3 cards in hand. There is no deck to draw from.</li>
+  <li><strong>Normal Magic rules</strong> with one exception: drawing from an empty library does not cause you to lose.</li>
+  <li><strong>All of Magic is legal</strong> — any card ever printed, with a few structural bans (un-sets, ante cards, subgames, wishes/sideboard cards).</li>
+  <li><strong>Worst-outcome convention</strong> — coin flips, dice rolls, and random effects resolve to the worst outcome for the controller.</li>
+  <li><strong>No turn cap</strong> — games end at 0 life, 10 poison, alt-win conditions, or stalemate (no winning line exists for either player).</li>
+  <li><strong>Duplicates are fine</strong> — you can submit 3 copies of the same card.</li>
+</ul>
+
+<h2>Judges</h2>
+<p>Some matchups involve complex interactions that can't be automatically resolved — weird board states, ambiguous rules interactions, or cards that require judgment calls. These are flagged as <strong>unresolved</strong> and assigned to designated human judges.</p>
+<p>Judges are MTG players trusted to determine the correct outcome. Their rulings are final for that matchup.</p>
+
+<h2>Results</h2>
+<p>After evaluation, the bot posts results publicly as a thread with:</p>
+<ul>
+  <li><strong>Card images</strong> for each player's deck</li>
+  <li><strong>Play-by-play narratives</strong> describing how each matchup plays out</li>
+  <li><strong>Per-direction verdicts</strong> (on the play vs. on the draw)</li>
+  <li><strong>Final standings</strong> for the round</li>
+</ul>
+<p>Working out the lines and debating matchup results is part of the fun.</p>
+
+<h2>Strategy Tips</h2>
+<ul>
+  <li>Think about what others will submit. The metagame matters more than raw power.</li>
+  <li>Fast aggro (turn 1-2 kills) beats slow combo. Disruption beats fast aggro. Resilient threats beat disruption.</li>
+  <li>Lands count as cards. A deck of 3 spells with no mana can't cast anything.</li>
+  <li>Remember: no library. Cards that draw or tutor are mostly dead.</li>
+  <li>Worst-outcome convention means <code>Mana Crypt</code> always deals 3 to you.</li>
+</ul>
+
+<h2>FAQ</h2>
+<ul>
+  <li><strong>Can I use any Magic card?</strong> — Yes, from any set, any era. The only bans are structural: un-sets, ante, subgames, and wishes.</li>
+  <li><strong>What about split cards / DFCs / adventures?</strong> — Submit the front face name. The card works normally (you can cast either side, transform, etc.).</li>
+  <li><strong>Can I change my deck?</strong> — Yes, DM the bot again with 3 new card names before the deadline. Your last submission counts.</li>
+  <li><strong>How long is a round?</strong> — Set by the judge when starting the round. Usually 24-48 hours.</li>
+  <li><strong>Who evaluates the matchups?</strong> — An AI evaluator reads the oracle text and 3CB rules, then determines optimal play for both sides. Complex cases go to human judges.</li>
+  <li><strong>What if I think a result is wrong?</strong> — All reasoning is preserved. Discuss it publicly — that's half the game.</li>
+</ul>
+
+<footer>
+  <p>3CBlue is run by <a href="https://bsky.app/profile/proptermalone.bsky.social">@proptermalone.bsky.social</a>. Source code and army of robots by the same.</p>
+</footer>
+
+</body>
+</html>`;
