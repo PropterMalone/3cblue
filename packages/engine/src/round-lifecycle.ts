@@ -19,6 +19,7 @@ import {
 	getUnresolvedMatchups,
 	insertMatchup,
 	updateRoundPhase,
+	addWinnerBan,
 } from "./database.js";
 import { evaluateMatchup as defaultEvaluateMatchup } from "./matchup-evaluator.js";
 
@@ -127,7 +128,7 @@ export async function resolveRound(
 	if (unresolvedCount > 0) {
 		updateRoundPhase(db, round.id, "judging");
 	} else {
-		updateRoundPhase(db, round.id, "complete");
+		completeRound(db, round.id);
 	}
 
 	return { matchups, unresolvedCount };
@@ -194,10 +195,29 @@ export function checkJudgingComplete(db: Database.Database): boolean {
 
 	const unresolved = getUnresolvedMatchups(db, round.id);
 	if (unresolved.length === 0) {
-		updateRoundPhase(db, round.id, "complete");
+		completeRound(db, round.id);
 		return true;
 	}
 	return false;
+}
+
+/** Mark round complete and ban the winning deck's cards. */
+function completeRound(db: Database.Database, roundId: number): void {
+	updateRoundPhase(db, roundId, "complete");
+	const standings = computeStandings(db, roundId);
+	if (standings.length === 0) return;
+
+	const topScore = standings[0]!.points;
+	const winners = standings.filter((s) => s.points === topScore);
+	const submissions = getSubmissionsForRound(db, roundId);
+
+	for (const winner of winners) {
+		const sub = submissions.find((s) => s.playerDid === winner.playerDid);
+		if (!sub) continue;
+		addWinnerBan(db, sub.card1Name, roundId);
+		addWinnerBan(db, sub.card2Name, roundId);
+		addWinnerBan(db, sub.card3Name, roundId);
+	}
 }
 
 export interface LeaderboardEntry {
