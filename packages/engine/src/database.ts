@@ -107,6 +107,13 @@ function initSchema(db: Database.Database): void {
 			did TEXT PRIMARY KEY REFERENCES players(did),
 			added_at TEXT NOT NULL DEFAULT (datetime('now'))
 		);
+
+		CREATE TABLE IF NOT EXISTS banned_cards (
+			card_name TEXT NOT NULL,
+			banned_from_round INTEGER NOT NULL REFERENCES rounds(id),
+			banned_at TEXT NOT NULL DEFAULT (datetime('now')),
+			PRIMARY KEY (card_name)
+		);
 	`);
 }
 
@@ -339,6 +346,40 @@ export function addJudge(db: Database.Database, did: string): void {
 
 export function isJudge(db: Database.Database, did: string): boolean {
 	const row = db.prepare("SELECT 1 FROM judges WHERE did = ?").get(did);
+	return row !== undefined;
+}
+
+// --- Winner ban operations ---
+
+export function addWinnerBan(
+	db: Database.Database,
+	cardName: string,
+	roundId: number,
+): void {
+	db.prepare(
+		"INSERT OR IGNORE INTO banned_cards (card_name, banned_from_round) VALUES (?, ?)",
+	).run(cardName, roundId);
+}
+
+export function getWinnerBans(
+	db: Database.Database,
+): { cardName: string; bannedFromRound: number }[] {
+	const rows = db
+		.prepare("SELECT card_name, banned_from_round FROM banned_cards ORDER BY card_name")
+		.all() as Record<string, unknown>[];
+	return rows.map((r) => ({
+		cardName: r.card_name as string,
+		bannedFromRound: r.banned_from_round as number,
+	}));
+}
+
+export function isWinnerBanned(
+	db: Database.Database,
+	cardName: string,
+): boolean {
+	const row = db
+		.prepare("SELECT 1 FROM banned_cards WHERE card_name = ?")
+		.get(cardName);
 	return row !== undefined;
 }
 

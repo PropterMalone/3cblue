@@ -10,6 +10,6 @@
     "dev": "node --import tsx src/index.ts"
   },
   "dependencies": {
-    "propter-bsky-kit": "file:../../../propter-bsky-kit"
+    "propter-bsky-kit": "file:../../propter-bsky-kit"
   }
 }

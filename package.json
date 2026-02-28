@@ -18,6 +18,6 @@
     "vitest": "^3.0.0"
   },
   "dependencies": {
-    "propter-bsky-kit": "file:../propter-bsky-kit"
+    "propter-bsky-kit": "file:propter-bsky-kit"
   }
 }
