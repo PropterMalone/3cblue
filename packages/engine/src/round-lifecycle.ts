@@ -10,6 +10,7 @@ import {
 	type DbMatchup,
 	type DbRound,
 	type DbSubmission,
+	addWinnerBan,
 	getActiveRound,
 	getAllCompletedMatchups,
 	getCompletedRoundCount,
@@ -19,7 +20,6 @@ import {
 	getUnresolvedMatchups,
 	insertMatchup,
 	updateRoundPhase,
-	addWinnerBan,
 } from "./database.js";
 import { evaluateMatchup as defaultEvaluateMatchup } from "./matchup-evaluator.js";
 
