@@ -90,26 +90,10 @@ export async function validateDeck(
 	if (isWinnerBanned) {
 		for (const card of cards) {
 			if (isWinnerBanned(card.name)) {
-				errors.push(
-					`"${card.name}" is banned (won a previous round).`,
-				);
+				errors.push(`"${card.name}" is banned (won a previous round).`);
 			}
 		}
 	}
-	if (errors.length > 0) {
-		return { ok: false, errors };
-	}
-
-	// Check for duplicates (same card name)
-	const names = cards.map((c) => c.name.toLowerCase());
-	const seen = new Set<string>();
-	for (const name of names) {
-		if (seen.has(name)) {
-			errors.push(`duplicate card: "${name}". each card must be unique.`);
-		}
-		seen.add(name);
-	}
-
 	if (errors.length > 0) {
 		return { ok: false, errors };
 	}

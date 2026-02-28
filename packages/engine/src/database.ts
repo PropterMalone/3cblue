@@ -114,6 +114,11 @@ function initSchema(db: Database.Database): void {
 			banned_at TEXT NOT NULL DEFAULT (datetime('now')),
 			PRIMARY KEY (card_name)
 		);
+
+		CREATE TABLE IF NOT EXISTS bot_state (
+			key TEXT PRIMARY KEY,
+			value TEXT NOT NULL
+		);
 	`);
 }
 
@@ -365,7 +370,9 @@ export function getWinnerBans(
 	db: Database.Database,
 ): { cardName: string; bannedFromRound: number }[] {
 	const rows = db
-		.prepare("SELECT card_name, banned_from_round FROM banned_cards ORDER BY card_name")
+		.prepare(
+			"SELECT card_name, banned_from_round FROM banned_cards ORDER BY card_name",
+		)
 		.all() as Record<string, unknown>[];
 	return rows.map((r) => ({
 		cardName: r.card_name as string,
@@ -381,6 +388,28 @@ export function isWinnerBanned(
 		.prepare("SELECT 1 FROM banned_cards WHERE card_name = ?")
 		.get(cardName);
 	return row !== undefined;
+}
+
+// --- Bot state operations ---
+
+export function getBotState(
+	db: Database.Database,
+	key: string,
+): string | undefined {
+	const row = db
+		.prepare("SELECT value FROM bot_state WHERE key = ?")
+		.get(key) as { value: string } | undefined;
+	return row?.value;
+}
+
+export function setBotState(
+	db: Database.Database,
+	key: string,
+	value: string,
+): void {
+	db.prepare(
+		"INSERT INTO bot_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+	).run(key, value);
 }
 
 // --- Row mappers ---

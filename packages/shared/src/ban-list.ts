@@ -41,10 +41,6 @@ const BANNED_ORACLE_PATTERNS = [
 		pattern: /your sideboard/i,
 		reason: "references sideboard (no sideboard in 3CB)",
 	},
-	{
-		pattern: /companion\b/i,
-		reason: "companion mechanic (no sideboard in 3CB)",
-	},
 ];
 
 /** Check if a card is structurally banned from 3CB */
@@ -73,14 +69,6 @@ export function checkBan(
 		if (pattern.test(card.oracleText)) {
 			return { banned: true, reason: `${card.name}: ${reason}` };
 		}
-	}
-
-	// Land ban — lands are meaningless in 3CB (unlimited mana)
-	if (card.types.includes("land") && card.types.length === 1) {
-		return {
-			banned: true,
-			reason: `${card.name}: pure lands have no effect in 3CB (unlimited mana)`,
-		};
 	}
 
 	return { banned: false };
