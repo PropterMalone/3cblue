@@ -23,6 +23,7 @@ import {
 	getSubmissionsForRound,
 	getUnresolvedMatchups,
 	isJudge,
+	isWinnerBanned,
 	resolveMatchup,
 	updateRoundPostUri,
 	upsertPlayer,
@@ -190,7 +191,9 @@ export class ThreeCBlueBot {
 			return;
 		}
 
-		const validation = await validateDeck(cardNames);
+		const validation = await validateDeck(cardNames, (name) =>
+			isWinnerBanned(this.db, name),
+		);
 		if (!validation.ok) {
 			const errorList = validation.errors.map((e) => `• ${e}`).join("\n");
 			await this.dm.sendDm(

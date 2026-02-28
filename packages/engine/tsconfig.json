@@ -5,6 +5,7 @@
     "rootDir": "src"
   },
   "include": ["src"],
+  "exclude": ["src/setup-test-round.ts", "src/dump-decks.ts", "src/dump-round-json.ts"],
   "references": [
     { "path": "../shared" }
   ]

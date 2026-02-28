@@ -31,9 +31,13 @@ export function parseCardNames(text: string): string[] {
 		.filter((line) => line.length > 0 && !line.startsWith("//"));
 }
 
+/** Check if a card name is winner-banned. Injectable for testing. */
+export type WinnerBanCheck = (cardName: string) => boolean;
+
 /** Validate a 3-card deck: look up, convert, ban-check. */
 export async function validateDeck(
 	cardNames: readonly string[],
+	isWinnerBanned?: WinnerBanCheck,
 ): Promise<DeckValidationResult> {
 	const errors: string[] = [];
 
@@ -76,6 +80,20 @@ export async function validateDeck(
 		const ban = banResults[i];
 		if (ban?.banned) {
 			errors.push(`"${cards[i]?.name}" is banned: ${ban.reason}`);
+		}
+	}
+	if (errors.length > 0) {
+		return { ok: false, errors };
+	}
+
+	// Check winner bans
+	if (isWinnerBanned) {
+		for (const card of cards) {
+			if (isWinnerBanned(card.name)) {
+				errors.push(
+					`"${card.name}" is banned (won a previous round).`,
+				);
+			}
 		}
 	}
 	if (errors.length > 0) {
