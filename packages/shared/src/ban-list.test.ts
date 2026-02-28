@@ -69,26 +69,12 @@ describe("checkBan", () => {
 		expect(result.reason).toContain("sideboard");
 	});
 
-	it("bans pure lands", () => {
+	it("allows lands", () => {
 		const result = checkBan(
 			makeCard({
 				name: "Island",
 				types: ["land"],
 				oracleText: "({T}: Add {U}.)",
-			}),
-		);
-		expect(result.banned).toBe(true);
-		expect(result.reason).toContain("lands have no effect");
-	});
-
-	it("allows creature lands (not pure land type)", () => {
-		const result = checkBan(
-			makeCard({
-				name: "Dryad Arbor",
-				types: ["land", "creature"],
-				oracleText: "",
-				power: 1,
-				toughness: 1,
 			}),
 		);
 		expect(result.banned).toBe(false);

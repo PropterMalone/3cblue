@@ -18,6 +18,7 @@ import {
 	type DbMatchup,
 	type DbSubmission,
 	getActiveRound,
+	getBotState,
 	getCompletedRoundCount,
 	getPlayer,
 	getSubmissionsForRound,
@@ -25,6 +26,7 @@ import {
 	isJudge,
 	isWinnerBanned,
 	resolveMatchup,
+	setBotState,
 	updateRoundPostUri,
 	upsertPlayer,
 	upsertSubmission,
@@ -73,6 +75,8 @@ export class ThreeCBlueBot {
 		this.dm = createBlueskyDmSender(chatAgent);
 		this.db = db;
 		this.config = config;
+		// Restore DM cursor from DB so restarts don't reprocess old messages
+		this.dmMessageId = getBotState(db, "dm_cursor") ?? undefined;
 	}
 
 	async start(): Promise<void> {
@@ -137,12 +141,19 @@ export class ThreeCBlueBot {
 			this.dmMessageId,
 		);
 
+		const botDid = this.agent.did;
 		for (const msg of messages) {
+			// Defense in depth: skip our own messages even if pollInboundDms missed them
+			if (msg.senderDid === botDid) continue;
+			console.log(
+				`[dm] inbound from ${msg.senderDid}: ${msg.text.slice(0, 80)}`,
+			);
 			await this.handleDirectMessage(msg.senderDid, msg.text);
 		}
 
 		if (latestMessageId) {
 			this.dmMessageId = latestMessageId;
+			setBotState(this.db, "dm_cursor", latestMessageId);
 		}
 	}
 
@@ -220,18 +231,9 @@ export class ThreeCBlueBot {
 
 		const names = validation.cards.map((c) => c.name).join(", ");
 
-		// Warn about cards with unresolved abilities (still legal, but matchups will need judge)
-		const unresolvedCards = validation.cards.filter((c) =>
-			c.abilities.some((a) => a.kind === "unresolved"),
-		);
-		const warning =
-			unresolvedCards.length > 0
-				? `\n\n⚠️ engine can't fully simulate: ${unresolvedCards.map((c) => c.name).join(", ")}. those matchups will need a judge.`
-				: "";
-
 		await this.dm.sendDm(
 			senderDid,
-			`✅ deck submitted for round ${round.id}: ${names}\n\nyou can resend to update your deck before the deadline.${warning}`,
+			`✅ deck submitted for round ${round.id}: ${names}\n\nyou can resend to update your deck before the deadline.`,
 		);
 	}
 

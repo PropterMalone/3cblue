@@ -32,8 +32,8 @@ import {
 export interface CastAction {
 	readonly type: "cast";
 	// Indices in hand to cast simultaneously.
-	// In 3CB with unlimited mana, casting order between your own spells
-	// doesn't matter — only WHICH cards to play matters.
+	// In 3CB, casting order between your own spells doesn't matter —
+	// only WHICH cards to play matters.
 	readonly cardIndices: readonly number[];
 }
 
@@ -84,7 +84,7 @@ function enumerateMainPhaseActions(state: GameState): Action[] {
 
 	// Enumerate all subsets of cards to cast (batch cast).
 	// Always includes cast-nothing (empty subset) which advances to combat.
-	// In 3CB with unlimited mana, you choose WHICH cards to play, not the order.
+	// In 3CB you choose WHICH cards to play, not the order.
 	const indices = player.hand.map((_, i) => i);
 	const subsets = generateSubsets(indices);
 
