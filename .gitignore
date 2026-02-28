@@ -4,7 +4,11 @@ dist/
 *.db
 *.db-journal
 *.db-wal
+*.db-shm
 .jj/
+CLAUDE.md
+propter-bsky-kit/
+*.png
 *.tsbuildinfo
 # Root vitest config build artifacts
 vitest.config.js
