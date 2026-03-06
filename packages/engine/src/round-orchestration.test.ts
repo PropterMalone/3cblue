@@ -6,6 +6,7 @@ import {
 	createDatabase,
 	getActiveRound,
 	getRound,
+	getWinnerBans,
 	insertMatchup,
 	resolveMatchup,
 	updateRoundPhase,
@@ -16,6 +17,7 @@ import {
 	type MatchupEvaluator,
 	checkJudgingComplete,
 	computeLeaderboard,
+	finalizeRound,
 	isRoundPastDeadline,
 	resolveRound,
 } from "./round-lifecycle.js";
@@ -232,6 +234,183 @@ describe("judging completion", () => {
 	});
 });
 
+function addNamedSubmission(
+	db: Database.Database,
+	roundId: number,
+	did: string,
+	handle: string,
+	cardNames: [string, string, string],
+): void {
+	upsertPlayer(db, did, handle, null);
+	upsertSubmission(
+		db,
+		roundId,
+		did,
+		cardNames.map((name) => ({
+			name,
+			json: JSON.stringify({
+				name,
+				manaCost: "",
+				colors: [],
+				types: ["creature"],
+				subtypes: [],
+				power: 2,
+				toughness: 2,
+				abilities: [],
+				oracleText: "",
+			}),
+		})),
+	);
+}
+
+describe("finalizeRound", () => {
+	it("sets phase to complete and bans winner's cards", () => {
+		const roundId = createRoundWithDeadline(db, -60_000);
+		addNamedSubmission(db, roundId, "did:plc:alice", "alice", [
+			"Lightning Bolt",
+			"Grizzly Bears",
+			"Giant Growth",
+		]);
+		addNamedSubmission(db, roundId, "did:plc:bob", "bob", [
+			"Shock",
+			"Llanowar Elves",
+			"Dark Ritual",
+		]);
+		updateRoundPhase(db, roundId, "resolution");
+
+		// Alice wins both directions
+		insertMatchup(
+			db,
+			roundId,
+			"did:plc:alice",
+			"did:plc:bob",
+			"player0_wins",
+			null,
+			"{}",
+		);
+
+		const result = finalizeRound(db, roundId);
+
+		expect(getRound(db, roundId)!.phase).toBe("complete");
+		expect(result.winnersFound).toBe(1);
+		expect(result.cardsBanned).toEqual([
+			"Lightning Bolt",
+			"Grizzly Bears",
+			"Giant Growth",
+		]);
+
+		const bans = getWinnerBans(db);
+		expect(bans).toHaveLength(3);
+		expect(bans.map((b) => b.cardName).sort()).toEqual([
+			"Giant Growth",
+			"Grizzly Bears",
+			"Lightning Bolt",
+		]);
+	});
+
+	it("is idempotent — safe to call on already-complete round", () => {
+		const roundId = createRoundWithDeadline(db, -60_000);
+		addNamedSubmission(db, roundId, "did:plc:alice", "alice", [
+			"Lightning Bolt",
+			"Grizzly Bears",
+			"Giant Growth",
+		]);
+		addNamedSubmission(db, roundId, "did:plc:bob", "bob", [
+			"Shock",
+			"Llanowar Elves",
+			"Dark Ritual",
+		]);
+		updateRoundPhase(db, roundId, "complete");
+		insertMatchup(
+			db,
+			roundId,
+			"did:plc:alice",
+			"did:plc:bob",
+			"player0_wins",
+			null,
+			"{}",
+		);
+
+		// Call twice
+		finalizeRound(db, roundId);
+		const result = finalizeRound(db, roundId);
+
+		expect(getRound(db, roundId)!.phase).toBe("complete");
+		expect(result.cardsBanned).toHaveLength(3);
+		// INSERT OR IGNORE means no duplicates
+		expect(getWinnerBans(db)).toHaveLength(3);
+	});
+
+	it("bans cards for all tied winners", () => {
+		const roundId = createRoundWithDeadline(db, -60_000);
+		addNamedSubmission(db, roundId, "did:plc:alice", "alice", [
+			"Lightning Bolt",
+			"Grizzly Bears",
+			"Giant Growth",
+		]);
+		addNamedSubmission(db, roundId, "did:plc:bob", "bob", [
+			"Shock",
+			"Llanowar Elves",
+			"Dark Ritual",
+		]);
+		addNamedSubmission(db, roundId, "did:plc:charlie", "charlie", [
+			"Counterspell",
+			"Force of Will",
+			"Brainstorm",
+		]);
+		updateRoundPhase(db, roundId, "resolution");
+
+		// Alice beats bob, charlie beats alice, bob beats charlie — three-way tie at 3pts each
+		insertMatchup(
+			db,
+			roundId,
+			"did:plc:alice",
+			"did:plc:bob",
+			"player0_wins",
+			null,
+			"{}",
+		);
+		insertMatchup(
+			db,
+			roundId,
+			"did:plc:charlie",
+			"did:plc:alice",
+			"player0_wins",
+			null,
+			"{}",
+		);
+		insertMatchup(
+			db,
+			roundId,
+			"did:plc:bob",
+			"did:plc:charlie",
+			"player0_wins",
+			null,
+			"{}",
+		);
+
+		const result = finalizeRound(db, roundId);
+
+		expect(result.winnersFound).toBe(3);
+		expect(result.cardsBanned).toHaveLength(9);
+		expect(getWinnerBans(db)).toHaveLength(9);
+	});
+
+	it("returns empty when round does not exist", () => {
+		const result = finalizeRound(db, 999);
+		expect(result.winnersFound).toBe(0);
+		expect(result.cardsBanned).toHaveLength(0);
+	});
+
+	it("returns empty when round has no submissions", () => {
+		const roundId = createRoundWithDeadline(db, -60_000);
+		const result = finalizeRound(db, roundId);
+		expect(result.winnersFound).toBe(0);
+		expect(result.cardsBanned).toHaveLength(0);
+		expect(getRound(db, roundId)!.phase).toBe("complete");
+	});
+});
+
 describe("leaderboard", () => {
 	it("returns empty for no completed rounds", () => {
 		const entries = computeLeaderboard(db);
@@ -338,19 +517,20 @@ describe("leaderboard", () => {
 		// R2: alice v bob: p1 wins → bob+3, alice loss
 		// R2: bob v alice: p0 wins → bob+3, alice loss
 
-		// Bob total: R1(0+3) + R2(3+3+3+3) = 15
+		// Per-direction scoring: legacy matchups without narrative count each direction
+		// Bob total: R1(0+6) + R2(6+6+6+6) = 30
 		const bob = entries.find((e) => e.playerDid === "did:plc:bob")!;
-		expect(bob.points).toBe(15);
+		expect(bob.points).toBe(30);
 		expect(bob.roundsPlayed).toBe(2);
 
-		// Alice total: R1(3+0) + R2(1+1+0+0) = 5
+		// Alice total: R1(6+0) + R2(2+2+0+0) = 10
 		const alice = entries.find((e) => e.playerDid === "did:plc:alice")!;
-		expect(alice.points).toBe(5);
+		expect(alice.points).toBe(10);
 		expect(alice.roundsPlayed).toBe(2);
 
-		// Charlie total: R2(0+0+1+1+0+0) = 2
+		// Charlie total: R2(0+0+2+2+0+0) = 4
 		const charlie = entries.find((e) => e.playerDid === "did:plc:charlie")!;
-		expect(charlie.points).toBe(2);
+		expect(charlie.points).toBe(4);
 		expect(charlie.roundsPlayed).toBe(1);
 
 		// Sorted by points descending
@@ -400,9 +580,9 @@ describe("leaderboard", () => {
 
 		const entries = computeLeaderboard(db);
 		const alice = entries.find((e) => e.playerDid === "did:plc:alice")!;
-		// Judge override: alice wins (3) + draw (1) = 4
-		expect(alice.points).toBe(4);
-		expect(alice.wins).toBe(1);
-		expect(alice.draws).toBe(1);
+		// Per-direction: judge override alice wins (6) + draw (2) = 8
+		expect(alice.points).toBe(8);
+		expect(alice.wins).toBe(2);
+		expect(alice.draws).toBe(2);
 	});
 });

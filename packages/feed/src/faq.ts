@@ -52,15 +52,17 @@ Delver of Secrets
 <h2>How It Works</h2>
 <p>Each round is a <strong>round-robin tournament</strong>. Every submitted deck plays against every other deck. Both sides play optimally — no misplays, no bluffing. The bot evaluates each matchup assuming perfect information and best play from both players.</p>
 
-<p>Each matchup is evaluated in both directions: you on the play, and you on the draw. If one player wins regardless of who goes first, they win the matchup. If the result depends on who goes first (each player wins on the play), it's a draw.</p>
+<p>Each matchup is evaluated in <strong>both directions</strong>: you on the play, and you on the draw. Each direction is an independent result — you can win on the play but lose on the draw (a "split"), or win both, draw both, etc. Points are awarded per direction, not per matchup.</p>
 
 <h2>Scoring</h2>
+<p>Each matchup is scored <strong>per direction</strong> — on the play and on the draw are independent results. You earn points for each direction separately:</p>
 <table>
-  <tr><th>Result</th><th>Points</th></tr>
+  <tr><th>Direction Result</th><th>Points</th></tr>
   <tr><td>Win</td><td class="pts">3</td></tr>
   <tr><td>Draw</td><td class="pts">1</td></tr>
   <tr><td>Loss</td><td class="pts">0</td></tr>
 </table>
+<p>So each matchup is worth up to <strong>6 points</strong>: win both directions (WW) = 6, win one + draw one (WD) = 4, win one + lose one (WL) = 3, draw both (DD) = 2, draw one + lose one (DL) = 1, lose both (LL) = 0.</p>
 <p>Standings are ranked by total points. An all-time leaderboard tracks cumulative results across rounds.</p>
 
 <h2>Rules</h2>

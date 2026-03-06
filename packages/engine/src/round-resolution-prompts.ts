@@ -1,8 +1,10 @@
 // pattern: Functional Core
 
-// Prompt construction, verdict parsing, and crosscheck logic for per-deck agent evaluation.
+// Prompt construction, verdict parsing, crosscheck logic, and historical lookup
+// for per-deck agent evaluation.
 // Each agent evaluates all matchups from one deck's perspective (as Player 0).
 // Crosscheck compares verdicts from both sides to flag disagreements.
+// Historical matchup data can short-circuit verdicts (narrative-only LLM call).
 
 import type { Card } from "@3cblue/shared";
 
@@ -187,6 +189,72 @@ function extractNarrative(text: string): string {
 	return match?.[1]?.trim() ?? "";
 }
 
+/** Canonical deck key: sorted lowercase card names. Order-independent. */
+export function canonicalDeckKey(cards: readonly Card[]): string {
+	return cards
+		.map((c) => c.name.toLowerCase())
+		.sort()
+		.join("|");
+}
+
+/**
+ * Build a narrative-only prompt for a matchup with a known verdict.
+ * Used when historical data gives us the outcome but we still want
+ * a player-facing play-by-play blurb.
+ */
+export function buildNarrativeOnlyPrompt(
+	deck0: DeckInfo,
+	deck1: DeckInfo,
+	knownOutcome: Verdict,
+): string {
+	const outcomeLabel =
+		knownOutcome === "player0_wins"
+			? `@${deck0.handle} wins`
+			: knownOutcome === "player1_wins"
+				? `@${deck1.handle} wins`
+				: "draw";
+
+	return `You are writing play-by-play narratives for a Three Card Blind (3CB) matchup.
+
+${THREE_CB_RULES}
+
+${formatDeckBlock(`Deck A (@${deck0.handle})`, deck0.cards)}
+
+${formatDeckBlock(`Deck B (@${deck1.handle})`, deck1.cards)}
+
+## Known Result
+The outcome of this matchup has already been determined: **${outcomeLabel}**.
+
+## Instructions
+Write brief narratives describing how each direction plays out. Do NOT re-evaluate the verdict — it's already decided.
+
+## Output Format (follow exactly)
+
+#### On the Play (A goes first)
+NARRATIVE: [1-2 sentences, under 200 chars]
+
+#### On the Draw (B goes first)
+NARRATIVE: [1-2 sentences, under 200 chars]
+`;
+}
+
+/** Parse narratives from a narrative-only prompt response. */
+export function parseNarrativeOnlyOutput(output: string): {
+	playNarrative: string;
+	drawNarrative: string;
+} {
+	const playSection = output.match(
+		/####\s+On the Play[\s\S]*?NARRATIVE:\s*(.+)/,
+	);
+	const drawSection = output.match(
+		/####\s+On the Draw[\s\S]*?NARRATIVE:\s*(.+)/,
+	);
+	return {
+		playNarrative: playSection?.[1]?.trim() ?? "",
+		drawNarrative: drawSection?.[1]?.trim() ?? "",
+	};
+}
+
 /** Flip a verdict from one player's perspective to the other. */
 export function flipVerdict(v: Verdict): Verdict {
 	if (v === "player0_wins") return "player1_wins";
@@ -219,6 +287,7 @@ export function crosscheckVerdicts(
 			player1Did: agentBDid,
 			agreed: true,
 			outcome: agentAVerdict.overall,
+			agentAVerdict: agentAVerdict,
 			playNarrative: isP1Win
 				? agentBVerdict.drawNarrative // B wins = B's perspective is more interesting
 				: agentAVerdict.playNarrative,

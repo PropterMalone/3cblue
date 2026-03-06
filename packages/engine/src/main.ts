@@ -4,16 +4,20 @@
 
 import { type BotConfig, ThreeCBlueBot } from "./bluesky-bot.js";
 import { createAgent } from "./bot.js";
+import { generateDashboardFromDb } from "./dashboard-html.js";
 import {
 	addJudge,
 	createDatabase,
 	createRound,
 	getActiveRound,
 	getMatchupsForRound,
+	getRound,
 	getSubmissionsForRound,
+	getUnresolvedMatchups,
 	updateRoundPostUri,
 } from "./database.js";
 import { formatAnnouncementPost } from "./post-formatter.js";
+import { finalizeRound } from "./round-lifecycle.js";
 
 function loadConfig(): BotConfig {
 	const service = process.env.BSKY_SERVICE ?? "https://bsky.social";
@@ -36,6 +40,17 @@ function loadConfig(): BotConfig {
 }
 
 async function main(): Promise<void> {
+	// Commands that don't need Bluesky credentials
+	const command = process.argv[2];
+	if (command === "dashboard") {
+		const dbPath = process.env.DB_PATH ?? "./3cblue.db";
+		const db = createDatabase(dbPath);
+		const html = generateDashboardFromDb(db);
+		process.stdout.write(html);
+		db.close();
+		return;
+	}
+
 	const config = loadConfig();
 	const db = createDatabase(config.dbPath);
 	const agent = await createAgent({
@@ -45,8 +60,6 @@ async function main(): Promise<void> {
 
 	const bot = new ThreeCBlueBot(agent, db, config);
 
-	// CLI commands for round management
-	const command = process.argv[2];
 	switch (command) {
 		case "start": {
 			const hours = Number.parseInt(process.argv[3] ?? "24", 10);
@@ -100,6 +113,30 @@ async function main(): Promise<void> {
 			}
 			return;
 		}
+		case "finalize": {
+			const roundIdArg = process.argv[3]
+				? Number.parseInt(process.argv[3], 10)
+				: undefined;
+			const targetRound = roundIdArg
+				? getRound(db, roundIdArg)
+				: getActiveRound(db);
+			if (!targetRound) {
+				console.error("[cli] no round found");
+				process.exit(1);
+			}
+			const unresolved = getUnresolvedMatchups(db, targetRound.id);
+			if (unresolved.length > 0) {
+				console.error(
+					`[cli] round ${targetRound.id} has ${unresolved.length} unresolved matchups — resolve those first`,
+				);
+				process.exit(1);
+			}
+			const result = finalizeRound(db, targetRound.id);
+			console.log(
+				`[cli] round ${targetRound.id} finalized — ${result.winnersFound} winner(s), banned: ${result.cardsBanned.join(", ") || "none"}`,
+			);
+			return;
+		}
 		case "post-results": {
 			const round = getActiveRound(db);
 			if (!round) {
@@ -111,6 +148,13 @@ async function main(): Promise<void> {
 					`[cli] round ${round.id} is in ${round.phase} phase — resolve first`,
 				);
 				process.exit(1);
+			}
+			// Auto-finalize if not yet complete (bans + phase transition)
+			if (round.phase !== "complete") {
+				const fin = finalizeRound(db, round.id);
+				console.log(
+					`[cli] auto-finalized round ${round.id} — banned: ${fin.cardsBanned.join(", ") || "none"}`,
+				);
 			}
 			console.log(`[cli] posting results for round ${round.id}...`);
 			const uri = await bot.postResults(round.id);
