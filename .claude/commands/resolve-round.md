@@ -1,24 +1,23 @@
 # Resolve Round
 
-Evaluate all matchups for the current 3CB round using parallel agents with crosscheck.
+Evaluate all matchups for the current 3CB round using parallel agents with crosscheck. Uses historical matchup data to skip LLM evaluation where possible, and deduplicates identical decks.
 
 ## Step 1: Load Round Data
 
 Read the DB to get the active round and all submissions. Run this script and capture the JSON output:
 
-```bash
-cd /home/karl/Projects/3cblue
-node -e "
-const { createDatabase, getActiveRound, getSubmissionsForRound, getPlayer } = require('./packages/engine/dist/database.js');
-const dbPath = process.env.DB_PATH || './3cblue.db';
-const db = createDatabase(dbPath);
+Write a temporary script `_resolve-load.ts` and run it with `npx tsx _resolve-load.ts`:
+
+```ts
+import { createDatabase, getActiveRound, getSubmissionsForRound, getPlayer } from "./packages/engine/src/database.ts";
+const db = createDatabase("data/3cblue.db");
 const round = getActiveRound(db);
-if (!round) { console.log(JSON.stringify({ error: 'no active round' })); process.exit(0); }
+if (round === undefined) { console.log(JSON.stringify({ error: "no active round" })); process.exit(0); }
 const subs = getSubmissionsForRound(db, round.id);
 const data = {
   roundId: round.id,
   phase: round.phase,
-  submissions: subs.map(s => {
+  submissions: subs.map((s: any) => {
     const player = getPlayer(db, s.playerDid);
     return {
       playerDid: s.playerDid,
@@ -32,31 +31,70 @@ const data = {
   })
 };
 console.log(JSON.stringify(data, null, 2));
-db.close();
-"
 ```
+
+Delete the script after capturing the output.
 
 If there's no active round or fewer than 2 submissions, stop and tell the user.
 
-If the round is not in `submission` or `signup` phase, warn the user but let them decide whether to proceed (they may want to re-evaluate).
+If the round is not in `submission` phase, warn the user but let them decide whether to proceed (they may want to re-evaluate).
 
-## Step 2: Build Deck Info
+## Step 2: Build Deck Info + Historical Lookup + Dedup
 
-For each submission, parse the card JSON to get oracle text. Build a `DeckInfo` object for each player:
+For each submission, parse the card JSON to get oracle text. Build a `DeckInfo` object for each player.
 
-```typescript
-interface DeckInfo {
-  playerDid: string;
-  handle: string;
-  cards: Card[]; // parsed from card1Json, card2Json, card3Json
-}
+### 2a: Check Historical Matchup Database
+
+Run the lookup for every pair:
+
+Use the functions from `packages/engine/src/matchup-lookup.ts` (imported via `npx tsx`):
+
+```ts
+import { lookupMatchup, loadMatchupDb, getMatchupDbStats } from "./packages/engine/src/matchup-lookup.ts";
+const matchupDb = loadMatchupDb();
+const stats = getMatchupDbStats(matchupDb);
+// For each pair (i, j):
+// lookupMatchup(deck0Cards, deck1Cards, matchupDb)
+// Returns { found: true, outcome, score, sources } or { found: false }
+```
+
+For each pair with a historical match:
+- **Use the known outcome** — do NOT send it to the LLM for verdict evaluation
+- **Still generate a narrative** — send a narrative-only prompt (much cheaper)
+- Track these as "historical" matchups
+
+### 2b: Deduplicate Identical Decks
+
+Use `canonicalDeckKey()` from `round-resolution-prompts.ts` to identify duplicate decks (card names sorted, case-insensitive). If players A and B submitted the same deck:
+- Only evaluate the deck once against each opponent
+- Copy the results for the duplicate deck's matchups
+- A-vs-B (mirror match) is always a draw
+
+### Summary to show user before proceeding:
+```
+Round N: X submissions, Y unique decks
+Historical matches found: Z (will skip LLM verdict)
+Matchups needing LLM evaluation: W
 ```
 
 ## Step 3: Spawn Per-Deck Agents
 
-Launch one Task agent per deck, **all in parallel** (single message with multiple Task tool calls). Use `subagent_type: "general-purpose"`.
+Launch one Task agent per **unique** deck (not per player), **2 at a time** to avoid filling context with notifications. Use `subagent_type: "general-purpose"`, `model: "sonnet"`, `run_in_background: true`.
 
-Each agent gets the following prompt (fill in the deck data):
+Each agent should write its output to `/tmp/r{N}-outputs/{handle_sanitized}.txt`. Tell agents: **"Write your complete output to the file. Return only the word DONE."** This minimizes notification size in the parent context.
+
+Wait for both agents in a batch to complete before launching the next pair. After all agents finish, verify all output files exist.
+
+**Context pressure warning**: Each agent notification consumes ~30-50 lines of parent context even with minimal returns. For rounds with >15 unique decks, warn the user:
+```
+⚠️ {N} unique decks = {N} agents. This will consume significant context.
+Consider: run agents in this session, then start a fresh session for crosscheck.
+All state is in /tmp/r{N}-* files.
+```
+
+**Important**: Only include opponents that need LLM evaluation (exclude matchups with historical results). If ALL of a deck's matchups have historical results, skip the agent entirely.
+
+Each agent gets the prompt built by `buildDeckAgentPrompt()` from `round-resolution-prompts.ts`:
 
 ---
 
@@ -76,7 +114,7 @@ You are evaluating Three Card Blind (3CB) matchups for one deck against all oppo
 {formatted cards with oracle text — name, mana cost, type line, power/toughness, oracle text}
 
 ## Opponents
-{for each opponent: formatted deck with handle, oracle text}
+{for each opponent that needs LLM evaluation: formatted deck with handle, oracle text}
 
 ## Instructions
 For each opponent, evaluate the matchup assuming optimal play from both sides.
@@ -87,27 +125,25 @@ For each matchup, produce:
 2. On-the-draw verdict + narrative (opponent goes first)
 3. Overall verdict
 
-Narratives: Write a 3-5 sentence play-by-play of how the game unfolds, aimed at Magic players.
-Describe the key turns, interactions, and why the result is what it is.
-These will be shown to players alongside card images.
-
+Narratives: 1-2 sentences describing the key plays, written for Magic players.
+Keep each narrative under 200 characters.
 Think step by step about mana sequencing, interaction timing, and combat math.
 
 Players play to win if they can. If they have no line that wins, they play to force a draw instead. If they have no line that wins or draws, they lose.
 
-## Output Format (follow EXACTLY)
+## Output Format (follow exactly)
 
 ### vs @{opponent_handle}
 
 #### On the Play
-{your analysis}
+[your analysis of this scenario]
 VERDICT: P0_WINS | P1_WINS | DRAW
-NARRATIVE: {3-5 sentence play-by-play}
+NARRATIVE: [1-2 sentences, under 200 chars]
 
 #### On the Draw
-{your analysis}
+[your analysis of this scenario]
 VERDICT: P0_WINS | P1_WINS | DRAW
-NARRATIVE: {3-5 sentence play-by-play}
+NARRATIVE: [1-2 sentences, under 200 chars]
 
 #### Overall
 VERDICT: P0_WINS | P1_WINS | DRAW
@@ -116,16 +152,18 @@ VERDICT: P0_WINS | P1_WINS | DRAW
 
 ---
 
-**Important**: Format card info like this for each card:
-```
-**Card Name** {mana cost}
-type line — P/T
-Oracle text
-```
+## Step 3b: Generate Narratives for Historical Matchups
+
+For matchups with known outcomes, spawn **one** Task agent to generate all narratives in batch. Use `buildNarrativeOnlyPrompt()` from `round-resolution-prompts.ts`. These are much shorter prompts — just asking for the play-by-play, not the verdict.
+
+Can run in parallel with the evaluation agents from Step 3.
 
 ## Step 4: Collect and Crosscheck
 
-After all agents return, crosscheck results:
+**This step can run in a fresh session.** All agent outputs are in `/tmp/r{N}-outputs/*.txt`, manifest in `/tmp/r{N}-manifest.json`, dedup map in `/tmp/r{N}-dedup.json`. If context is tight after Step 3, tell the user to start a new session and re-invoke `/resolve-round` — it should detect the existing output files and skip to crosscheck.
+
+### For LLM-evaluated matchups:
+After all agents return, crosscheck results using `crosscheckAllPairs()`:
 
 For each pair (A, B):
 - Agent-A evaluated "A vs B" where A is Player 0
@@ -133,48 +171,64 @@ For each pair (A, B):
 - **Agreement**: Agent-A's overall verdict, when flipped (player0_wins ↔ player1_wins, draw stays draw), matches Agent-B's overall verdict
 - **Disagreement**: they differ
 
-Parse each agent's output to extract per-opponent verdicts and narratives. The output follows a structured format with `### vs @handle` sections, `#### On the Play` / `#### On the Draw` / `#### Overall` subsections, `VERDICT:` lines, and `NARRATIVE:` lines.
+Parse each agent's output to extract per-opponent verdicts and narratives.
+
+### For historical matchups:
+No crosscheck needed — these are already known. Just pair the narrative output with the known verdict.
+
+### For duplicate decks:
+Copy results from the canonical deck's matchups.
 
 ## Step 5: Present Results
 
 Show the user a summary:
 
-### Agreements
-For each agreed matchup:
+### Historical Matches (from Metashape DB)
 ```
-@alice vs @bob — Alice wins (both agents agree)
+@alice vs @bob — Alice wins (historical: R45A, R67B)
+```
+
+### Agreements (LLM crosscheck passed)
+```
+@alice vs @charlie — Alice wins (both agents agree)
   On play: Alice wins — {narrative}
   On draw: Alice wins — {narrative}
 ```
 
 ### Disagreements
-For each disagreed matchup, show BOTH agents' reasoning side by side:
 ```
-⚠️ @alice vs @bob — DISAGREEMENT
-  Alice's agent says: Alice wins (P0_WINS)
-  Bob's agent says: Bob wins (P0_WINS from Bob's perspective)
+⚠️ @charlie vs @dave — DISAGREEMENT
+  Charlie's agent says: Charlie wins (P0_WINS)
+  Dave's agent says: Dave wins (P0_WINS from Dave's perspective)
 
-  Alice's agent reasoning: ...
-  Bob's agent reasoning: ...
+  Charlie's agent reasoning: ...
+  Dave's agent reasoning: ...
 ```
 
 Ask the user to resolve each disagreement by picking: "p0 wins", "p1 wins", or "draw".
 
 ## Step 6: Write Results to DB
 
-After all matchups are resolved (agreements + user-resolved disagreements), write them to the database:
+After all matchups are resolved, write them to the database:
 
-```bash
-node -e "
-const { createDatabase, insertMatchup, updateRoundPhase } = require('./packages/engine/dist/database.js');
-const db = createDatabase(process.env.DB_PATH || './3cblue.db');
+Write a temporary script `_resolve-write.ts` and run it with `npx tsx _resolve-write.ts`:
+
+```ts
+import { createDatabase, insertMatchup, updateRoundPhase } from "./packages/engine/src/database.ts";
+const db = createDatabase("data/3cblue.db");
 // For each matchup:
-insertMatchup(db, roundId, player0Did, player1Did, outcome, null, '{}', reasoning, narrative);
-// Advance round to complete:
-updateRoundPhase(db, roundId, 'complete');
-db.close();
-"
+// insertMatchup(db, roundId, player0Did, player1Did, outcome, unresolvedReason, statsJson, llmReasoning, narrative)
+//   outcome: "player0_wins" | "player1_wins" | "draw"
+//   unresolvedReason: null (or string if unresolved)
+//   statsJson: "{}" (unused for LLM-evaluated matchups)
+//   llmReasoning: string | null — full agent output for audit
+//   narrative: string | null — JSON.stringify({ onPlayVerdict, onDrawVerdict, playNarrative, drawNarrative })
+insertMatchup(db, roundId, player0Did, player1Did, outcome, null, "{}", reasoning, narrative);
+// After all matchups written:
+updateRoundPhase(db, roundId, "complete");
 ```
+
+Delete the script after running.
 
 The `narrative` column stores JSON with this structure:
 ```json
@@ -191,7 +245,12 @@ Use `JSON.stringify()` to serialize before inserting.
 For agreed matchups:
 - `outcome`: the agreed verdict
 - `reasoning`: combined reasoning from both agents
-- `narrative`: JSON with per-scenario verdicts and narratives (from winner's agent perspective; for draws, from P0's agent)
+- `narrative`: JSON with per-scenario verdicts and narratives
+
+For historical matchups:
+- `outcome`: the known verdict from Metashape DB
+- `reasoning`: `"historical match: R45A, R67B"` (source rounds)
+- `narrative`: JSON with narratives from the narrative-only agent
 
 For user-resolved disagreements:
 - `outcome`: the user's decision
@@ -202,11 +261,15 @@ For user-resolved disagreements:
 
 Tell the user:
 - How many matchups were resolved
-- How many agreements vs disagreements
+- Breakdown: historical / agreed / disagreements
+- How many LLM calls were saved by historical lookup + dedup
 - The round is now in `complete` phase
-- Remind them to run the bot to post results (or offer to do it if posting logic is available)
+- Remind them to run `node dist/main.js post-results` or offer to do it
 
 ## Notes
-- Card images: Scryfall provides card images at `https://api.scryfall.com/cards/named?exact={name}&format=image` — useful for the image generation step later
-- Narratives are stored in the `narrative` column and will be rendered to images for Bluesky posts
+- **Multi-session design**: Steps 1-3 (load data, build prompts, run agents) and Steps 4-7 (crosscheck, present, write DB) are independent sessions connected by `/tmp/r{N}-*` files. Always prefer splitting across sessions over risking context overflow.
+- Card images: Scryfall provides card images at `https://api.scryfall.com/cards/named?exact={name}&format=image`
+- Narratives are stored in the `narrative` column and rendered to images for Bluesky posts
 - Full LLM reasoning goes in `llm_reasoning` for audit
+- The matchup lookup DB is at `./data/metashape-matchups.json` (10,438 unique deck pairs from 106 Metashape rounds)
+- To re-scrape: `npx tsx packages/engine/src/scrape-metashape.ts`

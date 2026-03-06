@@ -5,7 +5,7 @@
     "rootDir": "src"
   },
   "include": ["src"],
-  "exclude": ["src/setup-test-round.ts", "src/dump-decks.ts", "src/dump-round-json.ts"],
+  "exclude": ["src/setup-test-round.ts", "src/dump-decks.ts", "src/dump-round-json.ts", "src/scrape-metashape.ts"],
   "references": [
     { "path": "../shared" }
   ]

@@ -4,10 +4,13 @@ import { describe, expect, it } from "vitest";
 import type { DeckInfo, MatchupVerdict } from "./round-resolution-prompts.js";
 import {
 	buildDeckAgentPrompt,
+	buildNarrativeOnlyPrompt,
+	canonicalDeckKey,
 	crosscheckAllPairs,
 	crosscheckVerdicts,
 	flipVerdict,
 	parseAgentVerdicts,
+	parseNarrativeOnlyOutput,
 } from "./round-resolution-prompts.js";
 
 const goblinGuide: Card = {
@@ -423,5 +426,47 @@ describe("crosscheckAllPairs", () => {
 
 		expect(disagreements[0]?.player0Did).toBe("did:plc:bob");
 		expect(disagreements[0]?.player1Did).toBe("did:plc:charlie");
+	});
+});
+
+describe("canonicalDeckKey", () => {
+	it("sorts card names case-insensitively", () => {
+		const key = canonicalDeckKey([goblinGuide, island, bear]);
+		expect(key).toBe("goblin guide|grizzly bears|island");
+	});
+
+	it("produces same key regardless of card order", () => {
+		const k1 = canonicalDeckKey([bear, island, goblinGuide]);
+		const k2 = canonicalDeckKey([island, goblinGuide, bear]);
+		expect(k1).toBe(k2);
+	});
+});
+
+describe("buildNarrativeOnlyPrompt", () => {
+	it("includes the known outcome", () => {
+		const prompt = buildNarrativeOnlyPrompt(deckA, deckB, "player0_wins");
+		expect(prompt).toContain("@alice.bsky.social wins");
+		expect(prompt).toContain("already been determined");
+	});
+
+	it("includes both decks", () => {
+		const prompt = buildNarrativeOnlyPrompt(deckA, deckB, "draw");
+		expect(prompt).toContain("Goblin Guide");
+		expect(prompt).toContain("Grizzly Bears");
+		expect(prompt).toContain("draw");
+	});
+});
+
+describe("parseNarrativeOnlyOutput", () => {
+	it("extracts play and draw narratives", () => {
+		const output = `#### On the Play (A goes first)
+NARRATIVE: Goblin Guide attacks for 2 on T1, Bolt finishes it.
+
+#### On the Draw (B goes first)
+NARRATIVE: Counterspell stops the key play, stalling to a draw.`;
+
+		const result = parseNarrativeOnlyOutput(output);
+		expect(result.playNarrative).toContain("Goblin Guide attacks");
+		expect(result.drawNarrative).toContain("Counterspell stops");
 	});
 });

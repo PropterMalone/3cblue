@@ -16,6 +16,7 @@ import {
 	getCompletedRoundCount,
 	getCompletedRoundPlayerDids,
 	getMatchupsForRound,
+	getRound,
 	getSubmissionsForRound,
 	getUnresolvedMatchups,
 	insertMatchup,
@@ -128,10 +129,31 @@ export async function resolveRound(
 	if (unresolvedCount > 0) {
 		updateRoundPhase(db, round.id, "judging");
 	} else {
-		completeRound(db, round.id);
+		finalizeRound(db, round.id);
 	}
 
 	return { matchups, unresolvedCount };
+}
+
+/**
+ * Extract per-direction verdicts from a matchup.
+ * Uses narrative JSON if available, otherwise derives from overall outcome.
+ * Returns [onPlay, onDraw] verdicts from player0's perspective.
+ */
+function getDirectionVerdicts(m: DbMatchup): [string, string] {
+	const effectiveOutcome = m.judgeResolution ?? m.outcome;
+	try {
+		if (m.narrative) {
+			const data = JSON.parse(m.narrative);
+			if (data.onPlayVerdict && data.onDrawVerdict) {
+				return [data.onPlayVerdict, data.onDrawVerdict];
+			}
+		}
+	} catch {
+		// malformed narrative, fall through
+	}
+	// Legacy fallback: treat overall as both directions
+	return [effectiveOutcome, effectiveOutcome];
 }
 
 /** Compute standings for a round from its matchup results. */
@@ -156,32 +178,34 @@ export function computeStandings(
 	}
 
 	for (const m of matchups) {
-		const effectiveOutcome = m.judgeResolution ?? m.outcome;
 		const p0 = standings.get(m.player0Did);
 		const p1 = standings.get(m.player1Did);
 		if (!p0 || !p1) continue;
 
-		switch (effectiveOutcome) {
-			case "player0_wins":
+		const effectiveOutcome = m.judgeResolution ?? m.outcome;
+		if (effectiveOutcome === "unresolved") {
+			p0.unresolved++;
+			p1.unresolved++;
+			continue;
+		}
+
+		// Per-direction scoring: 3/win, 1/draw, 0/loss per direction
+		const directions = getDirectionVerdicts(m);
+		for (const dir of directions) {
+			if (dir === "player0_wins") {
 				p0.points += 3;
 				p0.wins++;
 				p1.losses++;
-				break;
-			case "player1_wins":
+			} else if (dir === "player1_wins") {
 				p1.points += 3;
 				p1.wins++;
 				p0.losses++;
-				break;
-			case "draw":
+			} else {
 				p0.points += 1;
 				p1.points += 1;
 				p0.draws++;
 				p1.draws++;
-				break;
-			case "unresolved":
-				p0.unresolved++;
-				p1.unresolved++;
-				break;
+			}
 		}
 	}
 
@@ -195,29 +219,44 @@ export function checkJudgingComplete(db: Database.Database): boolean {
 
 	const unresolved = getUnresolvedMatchups(db, round.id);
 	if (unresolved.length === 0) {
-		completeRound(db, round.id);
+		finalizeRound(db, round.id);
 		return true;
 	}
 	return false;
 }
 
-/** Mark round complete and ban the winning deck's cards. */
-function completeRound(db: Database.Database, roundId: number): void {
-	updateRoundPhase(db, roundId, "complete");
+/** Mark round complete and ban the winning deck's cards.
+ *  Idempotent — safe to call on an already-complete round. */
+export function finalizeRound(
+	db: Database.Database,
+	roundId: number,
+): { winnersFound: number; cardsBanned: string[] } {
+	const round = getRound(db, roundId);
+	if (!round) return { winnersFound: 0, cardsBanned: [] };
+
+	// Transition phase if not already complete
+	if (round.phase !== "complete") {
+		updateRoundPhase(db, roundId, "complete");
+	}
+
 	const standings = computeStandings(db, roundId);
-	if (standings.length === 0) return;
+	if (standings.length === 0) return { winnersFound: 0, cardsBanned: [] };
 
 	const topScore = standings[0]!.points;
 	const winners = standings.filter((s) => s.points === topScore);
 	const submissions = getSubmissionsForRound(db, roundId);
+	const cardsBanned: string[] = [];
 
 	for (const winner of winners) {
 		const sub = submissions.find((s) => s.playerDid === winner.playerDid);
 		if (!sub) continue;
-		addWinnerBan(db, sub.card1Name, roundId);
-		addWinnerBan(db, sub.card2Name, roundId);
-		addWinnerBan(db, sub.card3Name, roundId);
+		for (const name of [sub.card1Name, sub.card2Name, sub.card3Name]) {
+			addWinnerBan(db, name, roundId);
+			cardsBanned.push(name);
+		}
 	}
+
+	return { winnersFound: winners.length, cardsBanned };
 }
 
 export interface LeaderboardEntry {
@@ -261,29 +300,30 @@ export function computeLeaderboard(db: Database.Database): LeaderboardEntry[] {
 	}
 
 	for (const m of matchups) {
-		const effectiveOutcome = m.judgeResolution ?? m.outcome;
 		const p0 = stats.get(m.player0Did);
 		const p1 = stats.get(m.player1Did);
 		if (!p0 || !p1) continue;
 
-		switch (effectiveOutcome) {
-			case "player0_wins":
+		const effectiveOutcome = m.judgeResolution ?? m.outcome;
+		if (effectiveOutcome === "unresolved") continue;
+
+		// Per-direction scoring: 3/win, 1/draw, 0/loss per direction
+		const directions = getDirectionVerdicts(m);
+		for (const dir of directions) {
+			if (dir === "player0_wins") {
 				p0.points += 3;
 				p0.wins++;
 				p1.losses++;
-				break;
-			case "player1_wins":
+			} else if (dir === "player1_wins") {
 				p1.points += 3;
 				p1.wins++;
 				p0.losses++;
-				break;
-			case "draw":
+			} else {
 				p0.points += 1;
 				p1.points += 1;
 				p0.draws++;
 				p1.draws++;
-				break;
-			// unresolved matchups in completed rounds shouldn't exist, but skip gracefully
+			}
 		}
 	}
 

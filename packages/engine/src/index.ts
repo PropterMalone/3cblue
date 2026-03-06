@@ -39,6 +39,7 @@ export type {
 
 export {
 	resolveRound,
+	finalizeRound,
 	computeStandings,
 	checkJudgingComplete,
 } from "./round-lifecycle.js";
@@ -72,6 +73,12 @@ export {
 	verdictDisplayLabel,
 } from "./matchup-narrative.js";
 export type { MatchupNarrative } from "./matchup-narrative.js";
+
+export {
+	generateDashboardHtml,
+	generateDashboardFromDb,
+} from "./dashboard-html.js";
+export type { DashboardData } from "./dashboard-html.js";
 
 export {
 	buildDeckAgentPrompt,
