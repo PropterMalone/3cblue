@@ -11,13 +11,8 @@ import {
 	createRound,
 	getActiveRound,
 	getMatchupsForRound,
-	getRound,
 	getSubmissionsForRound,
-	getUnresolvedMatchups,
-	updateRoundPostUri,
 } from "./database.js";
-import { formatAnnouncementPost } from "./post-formatter.js";
-import { finalizeRound } from "./round-lifecycle.js";
 
 function loadConfig(): BotConfig {
 	const service = process.env.BSKY_SERVICE ?? "https://bsky.social";
@@ -53,12 +48,6 @@ async function main(): Promise<void> {
 
 	const config = loadConfig();
 	const db = createDatabase(config.dbPath);
-	const agent = await createAgent({
-		identifier: config.identifier,
-		password: config.password,
-	});
-
-	const bot = new ThreeCBlueBot(agent, db, config);
 
 	switch (command) {
 		case "start": {
@@ -67,19 +56,6 @@ async function main(): Promise<void> {
 			console.log(
 				`[cli] created round ${round.id} (deadline: ${round.submissionDeadline})`,
 			);
-			if (round.submissionDeadline) {
-				const text = formatAnnouncementPost(
-					round.id,
-					new Date(round.submissionDeadline),
-				);
-				const uri = await bot.postAnnouncement(text);
-				if (uri) {
-					updateRoundPostUri(db, round.id, uri);
-					console.log(`[cli] announcement posted: ${uri}`);
-				} else {
-					console.error("[cli] failed to post announcement");
-				}
-			}
 			return;
 		}
 		case "add-judge": {
@@ -113,65 +89,16 @@ async function main(): Promise<void> {
 			}
 			return;
 		}
-		case "finalize": {
-			const roundIdArg = process.argv[3]
-				? Number.parseInt(process.argv[3], 10)
-				: undefined;
-			const targetRound = roundIdArg
-				? getRound(db, roundIdArg)
-				: getActiveRound(db);
-			if (!targetRound) {
-				console.error("[cli] no round found");
-				process.exit(1);
-			}
-			const unresolved = getUnresolvedMatchups(db, targetRound.id);
-			if (unresolved.length > 0) {
-				console.error(
-					`[cli] round ${targetRound.id} has ${unresolved.length} unresolved matchups — resolve those first`,
-				);
-				process.exit(1);
-			}
-			const result = finalizeRound(db, targetRound.id);
-			console.log(
-				`[cli] round ${targetRound.id} finalized — ${result.winnersFound} winner(s), banned: ${result.cardsBanned.join(", ") || "none"}`,
-			);
-			return;
-		}
-		case "post-results": {
-			const round = getActiveRound(db);
-			if (!round) {
-				console.error("[cli] no active round");
-				process.exit(1);
-			}
-			if (round.phase !== "complete" && round.phase !== "judging") {
-				console.error(
-					`[cli] round ${round.id} is in ${round.phase} phase — resolve first`,
-				);
-				process.exit(1);
-			}
-			// Auto-finalize if not yet complete (bans + phase transition)
-			if (round.phase !== "complete") {
-				const fin = finalizeRound(db, round.id);
-				console.log(
-					`[cli] auto-finalized round ${round.id} — banned: ${fin.cardsBanned.join(", ") || "none"}`,
-				);
-			}
-			console.log(`[cli] posting results for round ${round.id}...`);
-			const uri = await bot.postResults(round.id);
-			if (uri) {
-				console.log(`[cli] results posted: ${uri}`);
-			} else {
-				console.error("[cli] failed to post results");
-			}
-			await bot.postLeaderboard();
-			console.log("[cli] leaderboard posted");
-			return;
-		}
 		default:
 			break;
 	}
 
-	// Start the bot
+	// Start the bot (needs Bluesky credentials)
+	const agent = await createAgent({
+		identifier: config.identifier,
+		password: config.password,
+	});
+	const bot = new ThreeCBlueBot(agent, db, config);
 	console.log("[bot] starting 3CBlue bot...");
 	await bot.start();
 }

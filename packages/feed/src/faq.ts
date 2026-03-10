@@ -121,7 +121,8 @@ Delver of Secrets
 
 <p>Winner bans (cards from winning decks of previous rounds):</p>
 <div class="card" id="winner-bans">
-  <em>None yet — first round hasn't started!</em>
+  <strong>Round 1</strong> (nickchk): Chancellor of the Annex, Eumidian Hatchery, Strip Mine<br>
+  <strong>Round 2</strong> (rivertam &amp; ryanstephens): Black Lotus, Pact of Negation, Thassa's Oracle
 </div>
 
 <footer>
