@@ -468,7 +468,7 @@ export function applyCorrection(
 			) as Record<string, unknown>;
 
 		db.prepare(
-			`UPDATE matchups SET outcome = ?, narrative = COALESCE(?, narrative), correction_count = correction_count + 1 WHERE id = ?`,
+			"UPDATE matchups SET outcome = ?, narrative = COALESCE(?, narrative), correction_count = correction_count + 1 WHERE id = ?",
 		).run(newOutcome, newNarrative ?? null, matchupId);
 
 		return mapCorrection(correction);
@@ -485,9 +485,7 @@ export function getCorrections(
 		? "SELECT * FROM corrections WHERE matchup_id = ? ORDER BY applied_at"
 		: "SELECT * FROM corrections ORDER BY applied_at";
 	const rows = (
-		matchupId
-			? db.prepare(query).all(matchupId)
-			: db.prepare(query).all()
+		matchupId ? db.prepare(query).all(matchupId) : db.prepare(query).all()
 	) as Record<string, unknown>[];
 	return rows.map(mapCorrection);
 }

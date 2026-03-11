@@ -9,7 +9,7 @@ Read the DB to get the active round and all submissions. Run this script and cap
 Write a temporary script `_resolve-load.ts` and run it with `npx tsx _resolve-load.ts`:
 
 ```ts
-import { createDatabase, getActiveRound, getSubmissionsForRound, getPlayer } from "./packages/engine/src/database.ts";
+import { createDatabase, getActiveRound, getSubmissionsForRound, getPlayer } from "./src/database.ts";
 const db = createDatabase("data/3cblue.db");
 const round = getActiveRound(db);
 if (round === undefined) { console.log(JSON.stringify({ error: "no active round" })); process.exit(0); }
@@ -50,7 +50,7 @@ Run the lookup for every pair:
 Use the functions from `packages/engine/src/matchup-lookup.ts` (imported via `npx tsx`):
 
 ```ts
-import { lookupMatchup, loadMatchupDb, getMatchupDbStats } from "./packages/engine/src/matchup-lookup.ts";
+import { lookupMatchup, loadMatchupDb, getMatchupDbStats } from "./src/matchup-lookup.ts";
 const matchupDb = loadMatchupDb();
 const stats = getMatchupDbStats(matchupDb);
 // For each pair (i, j):
@@ -214,7 +214,7 @@ After all matchups are resolved, write them to the database:
 Write a temporary script `_resolve-write.ts` and run it with `npx tsx _resolve-write.ts`:
 
 ```ts
-import { createDatabase, insertMatchup, updateRoundPhase } from "./packages/engine/src/database.ts";
+import { createDatabase, insertMatchup, updateRoundPhase } from "./src/database.ts";
 const db = createDatabase("data/3cblue.db");
 // For each matchup:
 // insertMatchup(db, roundId, player0Did, player1Did, outcome, unresolvedReason, statsJson, llmReasoning, narrative)
@@ -272,4 +272,4 @@ Tell the user:
 - Narratives are stored in the `narrative` column and rendered to images for Bluesky posts
 - Full LLM reasoning goes in `llm_reasoning` for audit
 - The matchup lookup DB is at `./data/metashape-matchups.json` (10,438 unique deck pairs from 106 Metashape rounds)
-- To re-scrape: `npx tsx packages/engine/src/scrape-metashape.ts`
+- To re-scrape: `npx tsx src/scripts/scrape-metashape.ts`
