@@ -9,8 +9,8 @@ import {
 	createBlueskyDmSender,
 	createChatAgent,
 	pollInboundDms,
-} from "./bot.js";
-import type { DmSender } from "./bot.js";
+} from "propter-bsky-kit";
+import type { DmSender } from "propter-bsky-kit";
 import {
 	getActiveRound,
 	getBotState,

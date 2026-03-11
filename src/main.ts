@@ -3,7 +3,7 @@
 // Entry point for the 3CBlue bot.
 
 import { type BotConfig, ThreeCBlueBot } from "./bluesky-bot.js";
-import { createAgent } from "./bot.js";
+import { createAgent } from "propter-bsky-kit";
 import { generateDashboardFromDb } from "./dashboard-html.js";
 import {
 	addJudge,

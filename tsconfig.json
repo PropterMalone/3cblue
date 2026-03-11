@@ -16,5 +16,5 @@
     "rootDir": "src"
   },
   "include": ["src"],
-  "exclude": ["src/scripts", "src/evaluate-historical.ts", "src/evaluate-llm.ts", "src/setup-test-round.ts", "src/dump-decks.ts", "src/dump-round-json.ts", "src/scrape-metashape.ts"]
+  "exclude": ["src/scripts"]
 }
