@@ -47,6 +47,21 @@ export interface DbMatchup {
 	llmReasoning: string | null;
 	narrative: string | null; // player-facing play-by-play for posting
 	postUri: string | null;
+	onPlayVerdict: string | null; // per-direction: "W" | "L" | "D"
+	onDrawVerdict: string | null; // per-direction: "W" | "L" | "D"
+	correctionCount: number;
+}
+
+export interface DbCorrection {
+	id: number;
+	matchupId: number;
+	oldOutcome: string;
+	newOutcome: string;
+	oldNarrative: string | null;
+	newNarrative: string | null;
+	requestedBy: string | null;
+	reason: string | null;
+	appliedAt: string;
 }
 
 export function createDatabase(path: string): Database.Database {
@@ -119,7 +134,31 @@ function initSchema(db: Database.Database): void {
 			key TEXT PRIMARY KEY,
 			value TEXT NOT NULL
 		);
+
+		CREATE TABLE IF NOT EXISTS corrections (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			matchup_id INTEGER NOT NULL REFERENCES matchups(id),
+			old_outcome TEXT NOT NULL,
+			new_outcome TEXT NOT NULL,
+			old_narrative TEXT,
+			new_narrative TEXT,
+			requested_by TEXT,
+			reason TEXT,
+			applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+		);
 	`);
+
+	// Additive migrations — safe to run on existing DBs
+	const addColumn = (table: string, col: string, def: string) => {
+		try {
+			db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`);
+		} catch {
+			// column already exists
+		}
+	};
+	addColumn("matchups", "on_play_verdict", "TEXT");
+	addColumn("matchups", "on_draw_verdict", "TEXT");
+	addColumn("matchups", "correction_count", "INTEGER NOT NULL DEFAULT 0");
 }
 
 // --- Round operations ---
@@ -259,11 +298,13 @@ export function insertMatchup(
 	statsJson: string,
 	llmReasoning?: string | null,
 	narrative?: string | null,
+	onPlayVerdict?: string | null,
+	onDrawVerdict?: string | null,
 ): DbMatchup {
 	const row = db
 		.prepare(
-			`INSERT INTO matchups (round_id, player0_did, player1_did, outcome, unresolved_reason, stats_json, llm_reasoning, narrative)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+			`INSERT INTO matchups (round_id, player0_did, player1_did, outcome, unresolved_reason, stats_json, llm_reasoning, narrative, on_play_verdict, on_draw_verdict)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
 		)
 		.get(
 			roundId,
@@ -274,6 +315,8 @@ export function insertMatchup(
 			statsJson,
 			llmReasoning ?? null,
 			narrative ?? null,
+			onPlayVerdict ?? null,
+			onDrawVerdict ?? null,
 		) as Record<string, unknown>;
 	return mapMatchup(row);
 }
@@ -390,6 +433,65 @@ export function isWinnerBanned(
 	return row !== undefined;
 }
 
+// --- Correction operations ---
+
+/** Apply a correction to a matchup with full audit trail. Transactional. */
+export function applyCorrection(
+	db: Database.Database,
+	matchupId: number,
+	newOutcome: string,
+	newNarrative?: string | null,
+	requestedBy?: string | null,
+	reason?: string | null,
+): DbCorrection {
+	const apply = db.transaction(() => {
+		const matchup = db
+			.prepare("SELECT outcome, narrative FROM matchups WHERE id = ?")
+			.get(matchupId) as
+			| { outcome: string; narrative: string | null }
+			| undefined;
+		if (!matchup) throw new Error(`matchup ${matchupId} not found`);
+
+		const correction = db
+			.prepare(
+				`INSERT INTO corrections (matchup_id, old_outcome, new_outcome, old_narrative, new_narrative, requested_by, reason)
+				 VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+			)
+			.get(
+				matchupId,
+				matchup.outcome,
+				newOutcome,
+				matchup.narrative,
+				newNarrative ?? null,
+				requestedBy ?? null,
+				reason ?? null,
+			) as Record<string, unknown>;
+
+		db.prepare(
+			`UPDATE matchups SET outcome = ?, narrative = COALESCE(?, narrative), correction_count = correction_count + 1 WHERE id = ?`,
+		).run(newOutcome, newNarrative ?? null, matchupId);
+
+		return mapCorrection(correction);
+	});
+
+	return apply();
+}
+
+export function getCorrections(
+	db: Database.Database,
+	matchupId?: number,
+): DbCorrection[] {
+	const query = matchupId
+		? "SELECT * FROM corrections WHERE matchup_id = ? ORDER BY applied_at"
+		: "SELECT * FROM corrections ORDER BY applied_at";
+	const rows = (
+		matchupId
+			? db.prepare(query).all(matchupId)
+			: db.prepare(query).all()
+	) as Record<string, unknown>[];
+	return rows.map(mapCorrection);
+}
+
 // --- Bot state operations ---
 
 export function getBotState(
@@ -462,5 +564,22 @@ function mapMatchup(row: Record<string, unknown>): DbMatchup {
 		llmReasoning: row.llm_reasoning as string | null,
 		narrative: row.narrative as string | null,
 		postUri: row.post_uri as string | null,
+		onPlayVerdict: (row.on_play_verdict as string | null) ?? null,
+		onDrawVerdict: (row.on_draw_verdict as string | null) ?? null,
+		correctionCount: (row.correction_count as number) ?? 0,
+	};
+}
+
+function mapCorrection(row: Record<string, unknown>): DbCorrection {
+	return {
+		id: row.id as number,
+		matchupId: row.matchup_id as number,
+		oldOutcome: row.old_outcome as string,
+		newOutcome: row.new_outcome as string,
+		oldNarrative: row.old_narrative as string | null,
+		newNarrative: row.new_narrative as string | null,
+		requestedBy: row.requested_by as string | null,
+		reason: row.reason as string | null,
+		appliedAt: row.applied_at as string,
 	};
 }

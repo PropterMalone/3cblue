@@ -3,9 +3,11 @@ import type Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
 	addJudge,
+	applyCorrection,
 	createDatabase,
 	createRound,
 	getActiveRound,
+	getCorrections,
 	getMatchupsForRound,
 	getRound,
 	getSubmissionsForRound,
@@ -166,5 +168,100 @@ describe("judges", () => {
 
 		addJudge(db, "did:plc:judge");
 		expect(isJudge(db, "did:plc:judge")).toBe(true);
+	});
+});
+
+describe("corrections", () => {
+	it("applies a correction with audit trail", () => {
+		const round = createRound(db);
+		upsertPlayer(db, "did:plc:abc", "alice", null);
+		upsertPlayer(db, "did:plc:def", "bob", null);
+
+		const m = insertMatchup(
+			db,
+			round.id,
+			"did:plc:abc",
+			"did:plc:def",
+			"player0_wins",
+			null,
+			"{}",
+		);
+
+		const correction = applyCorrection(
+			db,
+			m.id,
+			"draw",
+			"corrected narrative",
+			"nickchk",
+			"Pyrokinesis exiles on cast",
+		);
+
+		expect(correction.oldOutcome).toBe("player0_wins");
+		expect(correction.newOutcome).toBe("draw");
+		expect(correction.requestedBy).toBe("nickchk");
+		expect(correction.reason).toBe("Pyrokinesis exiles on cast");
+
+		const updated = getMatchupsForRound(db, round.id);
+		expect(updated[0]?.outcome).toBe("draw");
+		expect(updated[0]?.narrative).toBe("corrected narrative");
+		expect(updated[0]?.correctionCount).toBe(1);
+	});
+
+	it("increments correction_count on multiple corrections", () => {
+		const round = createRound(db);
+		upsertPlayer(db, "did:plc:abc", "alice", null);
+		upsertPlayer(db, "did:plc:def", "bob", null);
+
+		const m = insertMatchup(
+			db,
+			round.id,
+			"did:plc:abc",
+			"did:plc:def",
+			"player0_wins",
+			null,
+			"{}",
+		);
+
+		applyCorrection(db, m.id, "draw");
+		applyCorrection(db, m.id, "player1_wins");
+
+		const updated = getMatchupsForRound(db, round.id);
+		expect(updated[0]?.correctionCount).toBe(2);
+
+		const corrections = getCorrections(db, m.id);
+		expect(corrections).toHaveLength(2);
+		expect(corrections[0]?.oldOutcome).toBe("player0_wins");
+		expect(corrections[0]?.newOutcome).toBe("draw");
+		expect(corrections[1]?.oldOutcome).toBe("draw");
+		expect(corrections[1]?.newOutcome).toBe("player1_wins");
+	});
+
+	it("throws on nonexistent matchup", () => {
+		expect(() => applyCorrection(db, 999, "draw")).toThrow(
+			"matchup 999 not found",
+		);
+	});
+
+	it("stores per-direction verdicts on insert", () => {
+		const round = createRound(db);
+		upsertPlayer(db, "did:plc:abc", "alice", null);
+		upsertPlayer(db, "did:plc:def", "bob", null);
+
+		const m = insertMatchup(
+			db,
+			round.id,
+			"did:plc:abc",
+			"did:plc:def",
+			"player0_wins",
+			null,
+			"{}",
+			null,
+			null,
+			"W",
+			"D",
+		);
+
+		expect(m.onPlayVerdict).toBe("W");
+		expect(m.onDrawVerdict).toBe("D");
 	});
 });

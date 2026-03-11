@@ -106,6 +106,9 @@ describe("formatMatchupResults", () => {
 				llmReasoning: null,
 				narrative: null,
 				postUri: null,
+				onPlayVerdict: null,
+				onDrawVerdict: null,
+				correctionCount: 0,
 			},
 		];
 		const posts = formatMatchupResults(1, matchups, handleMap);
@@ -209,6 +212,9 @@ describe("formatUnresolvedMatchup", () => {
 			llmReasoning: null,
 			narrative: null,
 			postUri: null,
+			onPlayVerdict: null,
+			onDrawVerdict: null,
+			correctionCount: 0,
 		};
 		const text = formatUnresolvedMatchup(m, handleMap);
 		expect(text).toContain("Needs judge");

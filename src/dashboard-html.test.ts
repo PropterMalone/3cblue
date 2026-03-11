@@ -50,6 +50,9 @@ function makeMockData(overrides?: Partial<DashboardData>): DashboardData {
 			llmReasoning: null,
 			narrative: null,
 			postUri: null,
+		onPlayVerdict: null,
+		onDrawVerdict: null,
+		correctionCount: 0,
 		},
 	];
 
@@ -157,6 +160,9 @@ describe("generateDashboardHtml", () => {
 				llmReasoning: null,
 				narrative: null,
 				postUri: null,
+				onPlayVerdict: null,
+				onDrawVerdict: null,
+				correctionCount: 0,
 			},
 		];
 		const html = generateDashboardHtml(makeMockData({ matchups }));
@@ -178,6 +184,9 @@ describe("generateDashboardHtml", () => {
 				llmReasoning: null,
 				narrative: null,
 				postUri: null,
+				onPlayVerdict: null,
+				onDrawVerdict: null,
+				correctionCount: 0,
 			},
 		];
 		const html = generateDashboardHtml(makeMockData({ matchups }));
@@ -201,6 +210,9 @@ describe("generateDashboardHtml", () => {
 				llmReasoning: null,
 				narrative: null,
 				postUri: null,
+				onPlayVerdict: null,
+				onDrawVerdict: null,
+				correctionCount: 0,
 			},
 		];
 		const html = generateDashboardHtml(makeMockData({ matchups }));
