@@ -3,7 +3,7 @@
 // Scryfall API client. Handles card lookup by name with caching.
 // Respects Scryfall's rate limit (100ms between requests).
 
-import type { ScryfallCard, ScryfallError } from "@3cblue/shared";
+import type { ScryfallCard, ScryfallError } from "./scryfall-types.js";
 
 const SCRYFALL_API = "https://api.scryfall.com";
 const MIN_REQUEST_INTERVAL_MS = 100;

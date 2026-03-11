@@ -3,7 +3,7 @@
 // Evaluates 3CB matchups by sending deck oracle text + rules to Claude API.
 // Returns a structured verdict (win/loss/draw) with reasoning.
 
-import type { Card } from "@3cblue/shared";
+import type { Card } from "./card-types.js";
 import Anthropic from "@anthropic-ai/sdk";
 
 export interface LlmMatchupVerdict {

@@ -1,4 +1,4 @@
-import type { Card } from "@3cblue/shared";
+import type { Card } from "./card-types.js";
 import {
 	createDatabase,
 	getActiveRound,

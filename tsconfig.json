@@ -7,17 +7,14 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "composite": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "noUncheckedIndexedAccess": true
+    "noUncheckedIndexedAccess": true,
+    "outDir": "dist",
+    "rootDir": "src"
   },
-  "include": [],
-  "references": [
-    { "path": "packages/shared" },
-    { "path": "packages/engine" },
-    { "path": "packages/feed" }
-  ]
+  "include": ["src"],
+  "exclude": ["src/scripts", "src/evaluate-historical.ts", "src/evaluate-llm.ts", "src/setup-test-round.ts", "src/dump-decks.ts", "src/dump-round-json.ts", "src/scrape-metashape.ts"]
 }

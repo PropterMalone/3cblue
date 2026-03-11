@@ -6,7 +6,7 @@
 // Crosscheck compares verdicts from both sides to flag disagreements.
 // Historical matchup data can short-circuit verdicts (narrative-only LLM call).
 
-import type { Card } from "@3cblue/shared";
+import type { Card } from "./card-types.js";
 
 export const THREE_CB_RULES = `## 3CB Rules
 - Each player has a 3-card hand and no library. Drawing from an empty library does NOT cause a loss.

@@ -1,5 +1,5 @@
 // pattern: Functional Core
-import type { Card } from "@3cblue/shared";
+import type { Card } from "./card-types.js";
 import { describe, expect, it } from "vitest";
 import { formatDeckForPrompt, parseVerdict } from "./matchup-evaluator.js";
 

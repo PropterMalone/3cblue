@@ -4,7 +4,7 @@
 // Each function advances the round to the next phase and returns
 // data needed for the bot to post/DM.
 
-import type { Card } from "@3cblue/shared";
+import type { Card } from "./card-types.js";
 import type Database from "better-sqlite3";
 import {
 	type DbMatchup,

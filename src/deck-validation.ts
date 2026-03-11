@@ -3,12 +3,9 @@
 // Validates a 3-card deck submission: lookup cards from Scryfall,
 // convert to engine Card objects, check format bans.
 
-import {
-	type BanCheckResult,
-	type Card,
-	checkDeckBans,
-	scryfallToCard,
-} from "@3cblue/shared";
+import { type BanCheckResult, checkDeckBans } from "./ban-list.js";
+import type { Card } from "./card-types.js";
+import { scryfallToCard } from "./scryfall-to-card.js";
 import { type CardLookupResult, lookupCards } from "./scryfall-client.js";
 
 export interface DeckValidationSuccess {

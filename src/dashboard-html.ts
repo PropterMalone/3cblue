@@ -1,0 +1,421 @@
+// pattern: Functional Core (generateDashboardHtml) + Imperative Shell (generateDashboardFromDb)
+
+import type Database from "better-sqlite3";
+import type { DbMatchup } from "./database.js";
+import {
+	getActiveRound,
+	getMatchupsForRound,
+	getPlayer,
+	getRound,
+	getSubmissionsForRound,
+	getWinnerBans,
+} from "./database.js";
+import { computeStandings } from "./round-lifecycle.js";
+import type { StandingsEntry } from "./round-lifecycle.js";
+
+export interface DashboardData {
+	round: {
+		id: number;
+		phase: string;
+		deadline: string | null;
+		submissionCount: number;
+	};
+	standings: StandingsEntry[];
+	matchups: DbMatchup[];
+	players: Map<string, { handle: string; cards: [string, string, string] }>;
+	bannedCards: { cardName: string; bannedFromRound: number }[];
+}
+
+// Phase visibility gates:
+// - submission: player count + deadline only
+// - resolution/judging: decklists, standings (if matchups exist), matrix as results arrive
+// - complete: full dashboard (standings, matrix, banned cards)
+
+function showDecklists(phase: string): boolean {
+	return phase !== "submission";
+}
+
+function showStandings(phase: string): boolean {
+	return phase !== "submission";
+}
+
+function showMatrix(phase: string): boolean {
+	return phase !== "submission";
+}
+
+function verdictChar(verdict: string, isP0: boolean): string {
+	if (verdict === "player0_wins") return isP0 ? "W" : "L";
+	if (verdict === "player1_wins") return isP0 ? "L" : "W";
+	return "D";
+}
+
+function getPairResult(
+	matchups: DbMatchup[],
+	playerA: string,
+	playerB: string,
+): string | null {
+	if (playerA === playerB) return "—";
+
+	const m = matchups.find(
+		(m) =>
+			(m.player0Did === playerA && m.player1Did === playerB) ||
+			(m.player0Did === playerB && m.player1Did === playerA),
+	);
+	if (!m) return null;
+
+	const outcome = m.judgeResolution ?? m.outcome;
+	if (outcome === "unresolved") return "?";
+
+	const isP0 = m.player0Did === playerA;
+
+	// Try per-direction from narrative JSON
+	try {
+		if (m.narrative) {
+			const data = JSON.parse(m.narrative);
+			if (data.onPlayVerdict && data.onDrawVerdict) {
+				// onPlay/onDraw are from p0's perspective
+				// If playerA is p0, on-play = playerA on play; if playerA is p1, flip
+				const playChar = verdictChar(data.onPlayVerdict, isP0);
+				const drawChar = verdictChar(data.onDrawVerdict, isP0);
+				return `${playChar}${drawChar}`;
+			}
+		}
+	} catch {
+		// malformed narrative, fall through
+	}
+
+	// Legacy fallback: single-char result
+	switch (outcome) {
+		case "player0_wins":
+			return isP0 ? "W" : "L";
+		case "player1_wins":
+			return isP0 ? "L" : "W";
+		case "draw":
+			return "D";
+		default:
+			return "?";
+	}
+}
+
+function resultClass(result: string | null): string {
+	switch (result) {
+		case "W":
+		case "WW":
+			return "res-w";
+		case "L":
+		case "LL":
+			return "res-l";
+		case "D":
+		case "DD":
+			return "res-d";
+		case "WD":
+		case "DW":
+			return "res-wd";
+		case "WL":
+		case "LW":
+			return "res-wl";
+		case "DL":
+		case "LD":
+			return "res-dl";
+		case "?":
+			return "res-q";
+		default:
+			return "";
+	}
+}
+
+function escapeHtml(s: string): string {
+	return s
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;");
+}
+
+/** Pure function: generate dashboard HTML from structured data. */
+export function generateDashboardHtml(data: DashboardData): string {
+	const { round, standings, matchups, players, bannedCards } = data;
+	const phase = round.phase;
+	const phaseLabel = phase.charAt(0).toUpperCase() + phase.slice(1);
+
+	// Info boxes — always show phase + players, only show matchups when past submission
+	const matchupBox = showMatrix(phase)
+		? `<div class="info-box">
+		<div class="label">Matchups</div>
+		<div class="value">${matchups.length}</div>
+	</div>`
+		: "";
+
+	// Deadline display
+	let deadlineHtml = "";
+	if (round.deadline) {
+		deadlineHtml = `<p class="deadline">Deadline: <time datetime="${round.deadline}">${round.deadline}</time></p>`;
+	}
+
+	// Submission phase: just the header info, deadline, and banned cards
+	if (phase === "submission") {
+		return wrapHtml(
+			round,
+			`
+<h1>3CBlue <span>Round ${round.id} Dashboard</span></h1>
+<div class="info-row">
+	<div class="info-box">
+		<div class="label">Phase</div>
+		<div><span class="phase phase-${phase}">${phaseLabel}</span></div>
+	</div>
+	<div class="info-box">
+		<div class="label">Players</div>
+		<div class="value">${round.submissionCount}</div>
+	</div>
+</div>
+${deadlineHtml}
+
+<p class="dim">Decklists will be revealed after the submission deadline.</p>
+
+${bannedSection(bannedCards)}`,
+		);
+	}
+
+	// Post-submission: show decklists, standings, matrix
+
+	// Standings table
+	const deckColumn = showDecklists(phase);
+	const standingsRows = standings
+		.map((s, i) => {
+			const p = players.get(s.playerDid);
+			const handle = p ? escapeHtml(p.handle) : s.playerDid.slice(0, 16);
+			const deckCell =
+				deckColumn && p
+					? `<td class="deck-cards">${p.cards.map((c) => escapeHtml(c)).join(", ")}</td>`
+					: "";
+			return `<tr>
+			<td class="rank">${i + 1}</td>
+			<td class="handle">@${handle}</td>
+			<td class="pts">${s.points}</td>
+			<td>${s.wins}</td>
+			<td>${s.draws}</td>
+			<td>${s.losses}</td>
+			${deckCell}
+		</tr>`;
+		})
+		.join("\n");
+
+	const deckHeader = deckColumn ? "<th>Deck</th>" : "";
+	let standingsHtml = "";
+	if (showStandings(phase) && standings.length > 0) {
+		standingsHtml = `
+<h2>Standings</h2>
+<table class="standings">
+	<thead><tr><th>#</th><th>Player</th><th>Pts</th><th>W</th><th>D</th><th>L</th>${deckHeader}</tr></thead>
+	<tbody>${standingsRows}</tbody>
+</table>`;
+	} else if (showStandings(phase)) {
+		standingsHtml = `
+<h2>Standings</h2>
+<p class="dim">No matchups resolved yet.</p>`;
+	}
+
+	// Matrix
+	let matrixHtml = "";
+	if (showMatrix(phase) && matchups.length > 0 && standings.length > 0) {
+		const playerOrder = standings.map((s) => s.playerDid);
+		const headerCells = playerOrder
+			.map((did) => {
+				const p = players.get(did);
+				const label = p ? escapeHtml(p.handle) : "?";
+				return `<th class="matrix-col" title="@${label}">${label.length > 8 ? `${label.slice(0, 7)}…` : label}</th>`;
+			})
+			.join("");
+
+		const rows = playerOrder
+			.map((rowDid) => {
+				const p = players.get(rowDid);
+				const label = p ? escapeHtml(p.handle) : "?";
+				const cells = playerOrder
+					.map((colDid) => {
+						const result = getPairResult(matchups, rowDid, colDid);
+						const cls = resultClass(result);
+						return `<td class="${cls}">${result ?? ""}</td>`;
+					})
+					.join("");
+				return `<tr><th class="matrix-row" title="@${label}">${label.length > 8 ? `${label.slice(0, 7)}…` : label}</th>${cells}</tr>`;
+			})
+			.join("\n");
+
+		matrixHtml = `
+		<h2>Matchup Matrix</h2>
+		<div class="matrix-wrap">
+			<table class="matrix">
+				<thead><tr><th></th>${headerCells}</tr></thead>
+				<tbody>${rows}</tbody>
+			</table>
+		</div>`;
+	}
+
+	return wrapHtml(
+		round,
+		`
+<h1>3CBlue <span>Round ${round.id} Dashboard</span></h1>
+<div class="info-row">
+	<div class="info-box">
+		<div class="label">Phase</div>
+		<div><span class="phase phase-${phase}">${phaseLabel}</span></div>
+	</div>
+	<div class="info-box">
+		<div class="label">Players</div>
+		<div class="value">${round.submissionCount}</div>
+	</div>
+	${matchupBox}
+</div>
+${deadlineHtml}
+
+${standingsHtml}
+
+${matrixHtml}
+
+${bannedSection(bannedCards)}`,
+	);
+}
+
+function bannedSection(
+	bannedCards: { cardName: string; bannedFromRound: number }[],
+): string {
+	const bannedHtml =
+		bannedCards.length > 0
+			? bannedCards
+					.map(
+						(b) =>
+							`<li>${escapeHtml(b.cardName)} <span class="dim">(R${b.bannedFromRound})</span></li>`,
+					)
+					.join("\n")
+			: "<li><em>None yet</em></li>";
+
+	return `<h2>Banned Cards</h2>
+<ul class="banned-list">
+${bannedHtml}
+</ul>`;
+}
+
+function wrapHtml(round: { id: number; phase: string }, body: string): string {
+	return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3CBlue Dashboard — Round ${round.id}</title>
+<style>
+  :root { --bg: #0d1117; --fg: #e6edf3; --accent: #4a9eff; --dim: #8b949e; --card: #161b22; --border: #30363d; --gold: #e5a832; --green: #3fb950; --red: #f85149; --yellow: #d29922; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: var(--bg); color: var(--fg); line-height: 1.6; padding: 2rem 1rem; max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 1.8rem; margin-bottom: 0.3rem; }
+  h1 span { color: var(--dim); font-weight: normal; font-size: 1rem; }
+  h2 { color: var(--accent); font-size: 1.2rem; margin: 2rem 0 0.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+  p { margin-bottom: 0.5rem; }
+  .dim { color: var(--dim); }
+  .phase { display: inline-block; padding: 0.15rem 0.6rem; border-radius: 4px; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; }
+  .phase-submission { background: #1a3a2a; color: var(--green); }
+  .phase-resolution { background: #3a2a1a; color: var(--yellow); }
+  .phase-judging { background: #3a1a1a; color: var(--red); }
+  .phase-complete { background: #1a2a3a; color: var(--accent); }
+  .deadline { color: var(--dim); font-size: 0.9rem; }
+  .info-row { display: flex; gap: 2rem; flex-wrap: wrap; margin: 1rem 0; }
+  .info-box { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.5rem; }
+  .info-box .label { color: var(--dim); font-size: 0.8rem; text-transform: uppercase; }
+  .info-box .value { font-size: 1.5rem; font-weight: 700; color: var(--gold); }
+
+  /* Standings table */
+  table.standings { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+  .standings th, .standings td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border); }
+  .standings th { color: var(--accent); font-size: 0.8rem; text-transform: uppercase; }
+  .standings .rank { color: var(--dim); width: 2rem; }
+  .standings .pts { color: var(--gold); font-weight: 600; }
+  .standings .handle { font-weight: 500; }
+  .standings .deck-cards { color: var(--dim); font-size: 0.85rem; max-width: 300px; }
+
+  /* Matrix */
+  .matrix-wrap { overflow-x: auto; margin: 1rem 0; }
+  table.matrix { border-collapse: collapse; font-size: 0.75rem; }
+  .matrix th, .matrix td { padding: 0.25rem 0.4rem; border: 1px solid var(--border); text-align: center; min-width: 2rem; }
+  .matrix thead th { position: sticky; top: 0; background: var(--bg); writing-mode: vertical-lr; text-orientation: mixed; transform: rotate(180deg); height: 6rem; color: var(--dim); font-weight: 500; }
+  .matrix .matrix-row { position: sticky; left: 0; background: var(--bg); text-align: right; padding-right: 0.5rem; color: var(--dim); font-weight: 500; white-space: nowrap; }
+  .res-w { background: #1a3a2a; color: var(--green); font-weight: 700; }
+  .res-l { background: #3a1a1a; color: var(--red); font-weight: 700; }
+  .res-d { background: #3a2a1a; color: var(--yellow); }
+  .res-wd { background: #1a3a2a; color: #7ad88e; }
+  .res-wl { background: #2a2a1a; color: var(--yellow); font-weight: 600; }
+  .res-dl { background: #3a221a; color: #d2793a; }
+  .res-q { background: #2a1a3a; color: #b87aff; }
+
+  /* Banned cards */
+  .banned-list { list-style: none; padding: 0; column-count: 2; column-gap: 2rem; }
+  .banned-list li { padding: 0.2rem 0; }
+  @media (max-width: 600px) { .banned-list { column-count: 1; } .standings .deck-cards { display: none; } }
+
+  footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--dim); font-size: 0.85rem; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+
+${body}
+
+<footer>
+	<p>Auto-generated dashboard. <a href="/3cb/faq">FAQ & Rules</a></p>
+</footer>
+
+</body>
+</html>`;
+}
+
+/** Query the DB and generate dashboard HTML for the active (or most recent) round. */
+export function generateDashboardFromDb(db: Database.Database): string {
+	// Find active round, fall back to most recent
+	let round = getActiveRound(db);
+	if (!round) {
+		const row = db
+			.prepare("SELECT * FROM rounds ORDER BY id DESC LIMIT 1")
+			.get() as Record<string, unknown> | undefined;
+		if (row) {
+			round = getRound(db, row.id as number);
+		}
+	}
+	if (!round) {
+		return generateDashboardHtml({
+			round: { id: 0, phase: "none", deadline: null, submissionCount: 0 },
+			standings: [],
+			matchups: [],
+			players: new Map(),
+			bannedCards: [],
+		});
+	}
+
+	const submissions = getSubmissionsForRound(db, round.id);
+	const matchups = getMatchupsForRound(db, round.id);
+	const standings = computeStandings(db, round.id);
+	const bannedCards = getWinnerBans(db);
+
+	const players = new Map<
+		string,
+		{ handle: string; cards: [string, string, string] }
+	>();
+	for (const sub of submissions) {
+		const player = getPlayer(db, sub.playerDid);
+		players.set(sub.playerDid, {
+			handle: player?.handle ?? sub.playerDid.slice(0, 16),
+			cards: [sub.card1Name, sub.card2Name, sub.card3Name],
+		});
+	}
+
+	return generateDashboardHtml({
+		round: {
+			id: round.id,
+			phase: round.phase,
+			deadline: round.submissionDeadline,
+			submissionCount: submissions.length,
+		},
+		standings,
+		matchups,
+		players,
+		bannedCards,
+	});
+}
