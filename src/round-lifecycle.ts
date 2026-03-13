@@ -4,8 +4,8 @@
 // Each function advances the round to the next phase and returns
 // data needed for the bot to post/DM.
 
-import type { Card } from "./card-types.js";
 import type Database from "better-sqlite3";
+import type { Card } from "./card-types.js";
 import {
 	type DbMatchup,
 	type DbRound,
@@ -141,7 +141,13 @@ export async function resolveRound(
  * Returns [onPlay, onDraw] verdicts from player0's perspective.
  */
 function getDirectionVerdicts(m: DbMatchup): [string, string] {
-	const effectiveOutcome = m.judgeResolution ?? m.outcome;
+	// Prefer DB columns (set by R4+ import)
+	if (m.onPlayVerdict && m.onDrawVerdict) {
+		const verdictToOutcome = (v: string) =>
+			v === "W" ? "player0_wins" : v === "L" ? "player1_wins" : "draw";
+		return [verdictToOutcome(m.onPlayVerdict), verdictToOutcome(m.onDrawVerdict)];
+	}
+	// Narrative JSON (R2-R3 format)
 	try {
 		if (m.narrative) {
 			const data = JSON.parse(m.narrative);
@@ -153,6 +159,7 @@ function getDirectionVerdicts(m: DbMatchup): [string, string] {
 		// malformed narrative, fall through
 	}
 	// Legacy fallback: treat overall as both directions
+	const effectiveOutcome = m.judgeResolution ?? m.outcome;
 	return [effectiveOutcome, effectiveOutcome];
 }
 
