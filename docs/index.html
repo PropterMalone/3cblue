@@ -62,7 +62,8 @@
   .narr-inline .narr-deck { flex: 1; min-width: 200px; }
   .narr-inline .narr-deck-label { color: var(--dim); font-size: 0.78rem; font-weight: 600; margin-bottom: 0.25rem; }
   .narr-inline .narr-deck-imgs { display: flex; gap: 4px; }
-  .narr-inline .narr-deck-imgs img { width: 80px; border-radius: 4px; }
+  .narr-inline .narr-deck-imgs img { width: 146px; border-radius: 6px; }
+  @media (max-width: 600px) { .narr-inline .narr-deck-imgs img { width: 100px; } }
   .narr-inline .narr-label { color: var(--accent); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; margin-top: 0.4rem; }
   .narr-inline .narr-text { color: var(--fg); margin: 0.15rem 0 0.4rem; }
   .matrix td[data-narr] { cursor: pointer; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
@@ -2999,7 +3000,7 @@ drunkonmystery on draw (alligatortakes wins): Gut Shot kills Hawk for free; Blig
 	}
 
 	function cardImgUrl(name) {
-		return 'https://api.scryfall.com/cards/named?exact=' + encodeURIComponent(name) + '&format=image&version=small';
+		return 'https://api.scryfall.com/cards/named?exact=' + encodeURIComponent(name) + '&format=image&version=normal';
 	}
 
 	function buildDeckImgs(label, cards) {
