@@ -86,16 +86,18 @@ function getPairResult(
 		if (m.narrative) {
 			const data = JSON.parse(m.narrative);
 			if (data.onPlayVerdict && data.onDrawVerdict) {
-				const playChar = verdictChar(data.onPlayVerdict, isP0);
-				const drawChar = verdictChar(data.onDrawVerdict, isP0);
+				const p0PlayChar = verdictChar(data.onPlayVerdict, isP0);
+				const p0DrawChar = verdictChar(data.onDrawVerdict, isP0);
 				// Convention: first letter = on-play result, always show as WL/WD/DL not LW/DW/LD
-				const sorted = [playChar, drawChar].sort((a, b) => {
+				const sorted = [p0PlayChar, p0DrawChar].sort((a, b) => {
 					const order: Record<string, number> = { W: 0, D: 1, L: 2 };
 					return (order[a] ?? 9) - (order[b] ?? 9);
 				});
 				display = `${sorted[0]}${sorted[1]}`;
 
 				// Build tooltip from narratives
+				// When hA is not p0, swap both verdicts AND narratives so
+				// "hA on play" uses the DB's on_draw data (p0 is on draw when hA is on play)
 				const pA = players.get(playerA);
 				const pB = players.get(playerB);
 				const hA = pA ? pA.handle.replace(".bsky.social", "") : "P0";
@@ -103,16 +105,19 @@ function getPairResult(
 				const playNarr = data.playNarrative ?? "";
 				const drawNarr = data.drawNarrative ?? "";
 				if (playNarr || drawNarr) {
+					// hA's on-play char: when hA is p0, use p0PlayChar; when hA is p1, use p0DrawChar (flipped)
+					const hAPlayChar = isP0 ? p0PlayChar : p0DrawChar;
+					const hADrawChar = isP0 ? p0DrawChar : p0PlayChar;
 					const playLabel =
-						playChar === "W"
+						hAPlayChar === "W"
 							? `${hA} wins`
-							: playChar === "L"
+							: hAPlayChar === "L"
 								? `${hB} wins`
 								: "Draw";
 					const drawLabel =
-						drawChar === "W"
+						hADrawChar === "W"
 							? `${hA} wins`
-							: drawChar === "L"
+							: hADrawChar === "L"
 								? `${hB} wins`
 								: "Draw";
 					const pNarr = isP0 ? playNarr : drawNarr;
