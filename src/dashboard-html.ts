@@ -52,6 +52,10 @@ function verdictChar(verdict: string, isP0: boolean): string {
 interface PairResult {
 	display: string;
 	tooltip: string;
+	cardsA?: string[];
+	cardsB?: string[];
+	handleA?: string;
+	handleB?: string;
 }
 
 function getPairResult(
@@ -117,7 +121,7 @@ function getPairResult(
 					const cardsB = pB ? pB.cards.join(", ") : "";
 					tooltip = `${hA}: ${cardsA}\n${hB}: ${cardsB}\n\n${hA} on play (${playLabel}): ${pNarr}\n${hA} on draw (${drawLabel}): ${dNarr}`;
 				}
-				return { display, tooltip };
+				return { display, tooltip, cardsA: pA?.cards, cardsB: pB?.cards, handleA: hA, handleB: hB };
 			}
 		}
 	} catch {
@@ -282,7 +286,11 @@ ${bannedSection(bannedCards)}`,
 						const titleAttr = result?.tooltip
 							? ` title="${escapeHtml(result.tooltip)}"`
 							: "";
-						return `<td class="${cls}"${titleAttr}>${result?.display ?? ""}</td>`;
+						const cardsAttr =
+							result?.cardsA && result?.cardsB
+								? ` data-cards-a="${escapeHtml(result.cardsA.join("|"))}" data-cards-b="${escapeHtml(result.cardsB.join("|"))}" data-ha="${escapeHtml(result.handleA ?? "")}" data-hb="${escapeHtml(result.handleB ?? "")}"`
+								: "";
+						return `<td class="${cls}"${titleAttr}${cardsAttr}>${result?.display ?? ""}</td>`;
 					})
 					.join("");
 				return `<tr><th class="matrix-row" title="@${label}">${label.length > 8 ? `${label.slice(0, 7)}…` : label}</th>${cells}</tr>`;
@@ -403,7 +411,12 @@ function wrapHtml(round: { id: number; phase: string }, body: string): string {
   .narr-inline { background: var(--card); border: 1px solid var(--accent); border-radius: 6px; padding: 0.75rem 1rem; margin: 0.25rem 0; font-size: 0.85rem; line-height: 1.5; }
   .narr-inline .narr-close { float: right; cursor: pointer; color: var(--dim); font-size: 1.1rem; padding: 0 0.3rem; }
   .narr-inline .narr-close:hover { color: var(--fg); }
-  .narr-inline .narr-decklist { color: var(--dim); font-size: 0.82rem; margin-bottom: 0.2rem; }
+  .narr-inline .narr-decklist { color: var(--dim); font-size: 0.82rem; margin-bottom: 0.2rem; display: none; }
+  .narr-inline .narr-cards { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
+  .narr-inline .narr-deck { flex: 1; min-width: 200px; }
+  .narr-inline .narr-deck-label { color: var(--dim); font-size: 0.78rem; font-weight: 600; margin-bottom: 0.25rem; }
+  .narr-inline .narr-deck-imgs { display: flex; gap: 4px; }
+  .narr-inline .narr-deck-imgs img { width: 80px; border-radius: 4px; }
   .narr-inline .narr-label { color: var(--accent); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; margin-top: 0.4rem; }
   .narr-inline .narr-text { color: var(--fg); margin: 0.15rem 0 0.4rem; }
   .matrix td[data-narr] { cursor: pointer; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
@@ -436,29 +449,44 @@ ${body}
 		if (old) old.remove();
 	}
 
-	function buildHtml(raw) {
+	function cardImgUrl(name) {
+		return 'https://api.scryfall.com/cards/named?exact=' + encodeURIComponent(name) + '&format=image&version=small';
+	}
+
+	function buildDeckImgs(label, cards) {
+		var html = '<div class="narr-deck"><div class="narr-deck-label">' + label + '</div><div class="narr-deck-imgs">';
+		for (var i = 0; i < cards.length; i++) {
+			html += '<img src="' + cardImgUrl(cards[i]) + '" alt="' + cards[i] + '" loading="lazy">';
+		}
+		return html + '</div></div>';
+	}
+
+	function buildHtml(raw, td) {
 		var lines = raw.split('\\n');
 		var html = '<span class="narr-close">\\u2715</span>';
-		var inDecks = true;
+		var cardsA = (td.getAttribute('data-cards-a') || '').split('|').filter(Boolean);
+		var cardsB = (td.getAttribute('data-cards-b') || '').split('|').filter(Boolean);
+		var hA = td.getAttribute('data-ha') || '';
+		var hB = td.getAttribute('data-hb') || '';
+		if (cardsA.length && cardsB.length) {
+			html += '<div class="narr-cards">' + buildDeckImgs(hA, cardsA) + buildDeckImgs(hB, cardsB) + '</div>';
+		}
 		for (var i = 0; i < lines.length; i++) {
 			var line = lines[i].trim();
-			if (!line) { inDecks = false; continue; }
-			if (inDecks && line.indexOf(' on play ') === -1 && line.indexOf(' on draw ') === -1) {
-				html += '<div class="narr-decklist">' + line + '</div>';
+			if (!line) continue;
+			var match = line.match(/^(.+?on (?:play|draw) \\(.+?\\)):\\s*(.+)$/);
+			if (match) {
+				html += '<div class="narr-label">' + match[1] + '</div>';
+				html += '<div class="narr-text">' + match[2] + '</div>';
 			} else {
-				inDecks = false;
-				var match = line.match(/^(.+?on (?:play|draw) \\(.+?\\)):\\s*(.+)$/);
-				if (match) {
-					html += '<div class="narr-label">' + match[1] + '</div>';
-					html += '<div class="narr-text">' + match[2] + '</div>';
+				var m2 = line.match(/^(.+?):\\s*(.+)$/);
+				if (m2 && line.indexOf(' on play ') === -1 && line.indexOf(' on draw ') === -1) {
+					html += '<div class="narr-decklist">' + line + '</div>';
+				} else if (m2) {
+					html += '<div class="narr-label">' + m2[1] + '</div>';
+					html += '<div class="narr-text">' + m2[2] + '</div>';
 				} else {
-					var m2 = line.match(/^(.+?):\\s*(.+)$/);
-					if (m2) {
-						html += '<div class="narr-label">' + m2[1] + '</div>';
-						html += '<div class="narr-text">' + m2[2] + '</div>';
-					} else {
-						html += '<div class="narr-text">' + line + '</div>';
-					}
+					html += '<div class="narr-text">' + line + '</div>';
 				}
 			}
 		}
@@ -482,7 +510,7 @@ ${body}
 		narrTd.setAttribute('colspan', colCount);
 		var narrDiv = document.createElement('div');
 		narrDiv.className = 'narr-inline';
-		narrDiv.innerHTML = buildHtml(raw);
+		narrDiv.innerHTML = buildHtml(raw, td);
 		narrTd.appendChild(narrDiv);
 		narrTr.appendChild(narrTd);
 		tr.parentNode.insertBefore(narrTr, tr.nextSibling);
