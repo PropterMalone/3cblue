@@ -3,125 +3,368 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>3CBlue — Three Card Blind on Bluesky</title>
+<title>3CBlue Dashboard — Round 4</title>
 <style>
-  :root { --bg: #0d1117; --fg: #e6edf3; --accent: #4a9eff; --dim: #8b949e; --card: #161b22; --border: #30363d; --gold: #e5a832; --green: #3fb950; }
+  :root { --bg: #0d1117; --fg: #e6edf3; --accent: #4a9eff; --dim: #8b949e; --card: #161b22; --border: #30363d; --gold: #e5a832; --green: #3fb950; --red: #f85149; --yellow: #d29922; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: var(--bg); color: var(--fg); line-height: 1.6; padding: 2rem 1rem; max-width: 720px; margin: 0 auto; }
-  h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: var(--bg); color: var(--fg); line-height: 1.6; padding: 2rem 1rem; max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 1.8rem; margin-bottom: 0.3rem; }
   h1 span { color: var(--dim); font-weight: normal; font-size: 1rem; }
   h2 { color: var(--accent); font-size: 1.2rem; margin: 2rem 0 0.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
-  p, li { color: var(--fg); margin-bottom: 0.5rem; }
-  ul, ol { padding-left: 1.5rem; }
-  code { background: var(--card); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.9em; color: var(--accent); }
-  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin: 0.75rem 0; }
-  .card strong { color: var(--accent); }
-  a { color: var(--accent); }
+  p { margin-bottom: 0.5rem; }
+  .dim { color: var(--dim); }
+  .phase { display: inline-block; padding: 0.15rem 0.6rem; border-radius: 4px; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; }
+  .phase-submission { background: #1a3a2a; color: var(--green); }
+  .phase-resolution { background: #3a2a1a; color: var(--yellow); }
+  .phase-judging { background: #3a1a1a; color: var(--red); }
+  .phase-complete { background: #1a2a3a; color: var(--accent); }
+  .deadline { color: var(--dim); font-size: 0.9rem; }
+  .info-row { display: flex; gap: 2rem; flex-wrap: wrap; margin: 1rem 0; }
+  .info-box { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.5rem; }
+  .info-box .label { color: var(--dim); font-size: 0.8rem; text-transform: uppercase; }
+  .info-box .value { font-size: 1.5rem; font-weight: 700; color: var(--gold); }
+
+  /* Standings table */
+  table.standings { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+  .standings th, .standings td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border); }
+  .standings th { color: var(--accent); font-size: 0.8rem; text-transform: uppercase; }
+  .standings .rank { color: var(--dim); width: 2rem; }
+  .standings .pts { color: var(--gold); font-weight: 600; }
+  .standings .handle { font-weight: 500; }
+  .standings .deck-cards { color: var(--dim); font-size: 0.85rem; max-width: 300px; }
+
+  /* Matrix */
+  .matrix-wrap { overflow-x: auto; margin: 1rem 0; }
+  table.matrix { border-collapse: collapse; font-size: 0.75rem; }
+  .matrix th, .matrix td { padding: 0.25rem 0.4rem; border: 1px solid var(--border); text-align: center; min-width: 2rem; }
+  .matrix thead th { position: sticky; top: 0; background: var(--bg); writing-mode: vertical-lr; text-orientation: mixed; transform: rotate(180deg); height: 6rem; color: var(--dim); font-weight: 500; }
+  .matrix .matrix-row { position: sticky; left: 0; background: var(--bg); text-align: right; padding-right: 0.5rem; color: var(--dim); font-weight: 500; white-space: nowrap; }
+  .res-w { background: #1a3a2a; color: var(--green); font-weight: 700; }
+  .res-l { background: #3a1a1a; color: var(--red); font-weight: 700; }
+  .res-d { background: #3a2a1a; color: var(--yellow); }
+  .res-wd { background: #1a3a2a; color: #7ad88e; }
+  .res-wl { background: #2a2a1a; color: var(--yellow); font-weight: 600; }
+  .res-dl { background: #3a221a; color: #d2793a; }
+  .res-q { background: #2a1a3a; color: #b87aff; }
+
+  /* Banned cards */
+  .banned-list { list-style: none; padding: 0; column-count: 2; column-gap: 2rem; }
+  .banned-list li { padding: 0.2rem 0; }
+  @media (max-width: 600px) { .banned-list { column-count: 1; } .standings .deck-cards { display: none; } }
+
   footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--dim); font-size: 0.85rem; }
-  table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
-  th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--border); }
-  th { color: var(--accent); font-size: 0.85rem; text-transform: uppercase; }
-  .pts { color: var(--gold); font-weight: 600; }
+  a { color: var(--accent); }
 </style>
 </head>
 <body>
 
-<h1>🃏 3CBlue <span>Three Card Blind on Bluesky</span></h1>
 
-<p>3CBlue runs games of <strong>Three Card Blind</strong> — a deckbuilding metagame format for Magic: The Gathering — entirely through Bluesky DMs and posts.</p>
-
-<h2>Quick Start</h2>
-<ol>
-  <li><strong>Follow <code>@3cblue.bsky.social</code></strong> — required to DM the bot (Bluesky platform requirement)</li>
-  <li>Wait for a round announcement</li>
-  <li>DM the bot 3 card names, one per line:</li>
-</ol>
-<div class="card">
-Lightning Bolt<br>
-Snapcaster Mage<br>
-Delver of Secrets
+<h1>3CBlue <span>Round 4 Dashboard</span></h1>
+<div class="info-row">
+	<div class="info-box">
+		<div class="label">Phase</div>
+		<div><span class="phase phase-resolution">Resolution</span></div>
+	</div>
+	<div class="info-box">
+		<div class="label">Players</div>
+		<div class="value">26</div>
+	</div>
+	<div class="info-box">
+		<div class="label">Matchups</div>
+		<div class="value">325</div>
+	</div>
 </div>
-<ul>
-  <li>Bot confirms your deck or tells you what's wrong</li>
-  <li>You can resend to update your deck any time before the deadline</li>
-  <li>After the deadline, all matchups are evaluated and results posted publicly</li>
-</ul>
+<p class="deadline">Deadline: <time datetime="2026-03-12T22:00:00Z">2026-03-12T22:00:00Z</time></p>
 
-<h2>How It Works</h2>
-<p>Each round is a <strong>round-robin tournament</strong>. Every submitted deck plays against every other deck. Both sides play optimally — no misplays, no bluffing. The bot evaluates each matchup assuming perfect information and best play from both players.</p>
 
-<p>Each matchup is evaluated in both directions: you on the play, and you on the draw. If one player wins regardless of who goes first, they win the matchup. If the result depends on who goes first (each player wins on the play), it's a draw.</p>
-
-<h2>Scoring</h2>
-<table>
-  <tr><th>Result</th><th>Points</th></tr>
-  <tr><td>Win</td><td class="pts">3</td></tr>
-  <tr><td>Draw</td><td class="pts">1</td></tr>
-  <tr><td>Loss</td><td class="pts">0</td></tr>
+<h2>Standings</h2>
+<table class="standings">
+	<thead><tr><th>#</th><th>Player</th><th>Pts</th><th>W</th><th>D</th><th>L</th><th>Deck</th></tr></thead>
+	<tbody><tr>
+			<td class="rank">1</td>
+			<td class="handle">@lessdismalsci.bsky.social</td>
+			<td class="pts">104</td>
+			<td>32</td>
+			<td>8</td>
+			<td>10</td>
+			<td class="deck-cards">Shadowgrange Archfiend, Lion's Eye Diamond, Basking Rootwalla</td>
+		</tr>
+<tr>
+			<td class="rank">2</td>
+			<td class="handle">@mutantmell.net</td>
+			<td class="pts">100</td>
+			<td>26</td>
+			<td>22</td>
+			<td>2</td>
+			<td class="deck-cards">Mishra's Factory, Mox Jet, Mind Rake</td>
+		</tr>
+<tr>
+			<td class="rank">3</td>
+			<td class="handle">@proptermalone.bsky.social</td>
+			<td class="pts">98</td>
+			<td>26</td>
+			<td>20</td>
+			<td>4</td>
+			<td class="deck-cards">Blackmail, The Rack, Snow-Covered Swamp</td>
+		</tr>
+<tr>
+			<td class="rank">4</td>
+			<td class="handle">@brythefryguy.bsky.social</td>
+			<td class="pts">96</td>
+			<td>28</td>
+			<td>12</td>
+			<td>10</td>
+			<td class="deck-cards">City of Traitors, Mox Pearl, Anointed Peacekeeper</td>
+		</tr>
+<tr>
+			<td class="rank">5</td>
+			<td class="handle">@rivertam.bsky.social</td>
+			<td class="pts">94</td>
+			<td>28</td>
+			<td>10</td>
+			<td>12</td>
+			<td class="deck-cards">Leyline of Singularity, Karakas, Ocelot Pride</td>
+		</tr>
+<tr>
+			<td class="rank">6</td>
+			<td class="handle">@jslandau.cc</td>
+			<td class="pts">94</td>
+			<td>28</td>
+			<td>10</td>
+			<td>12</td>
+			<td class="deck-cards">Leyline of Singularity, Karakas, Ocelot Pride</td>
+		</tr>
+<tr>
+			<td class="rank">7</td>
+			<td class="handle">@tomscud.bsky.social</td>
+			<td class="pts">92</td>
+			<td>24</td>
+			<td>20</td>
+			<td>6</td>
+			<td class="deck-cards">Lion's Eye Diamond, Shadowgrange Archfiend, Wasteland</td>
+		</tr>
+<tr>
+			<td class="rank">8</td>
+			<td class="handle">@skis-n-reads.bsky.social</td>
+			<td class="pts">92</td>
+			<td>24</td>
+			<td>20</td>
+			<td>6</td>
+			<td class="deck-cards">Wasteland, Lion's Eye Diamond, Shadowgrange Archfiend</td>
+		</tr>
+<tr>
+			<td class="rank">9</td>
+			<td class="handle">@meatballwalrus.bsky.social</td>
+			<td class="pts">90</td>
+			<td>26</td>
+			<td>12</td>
+			<td>12</td>
+			<td class="deck-cards">Mishra's Workshop, Iron Spider, Stark Upgrade, Disruptor Flute</td>
+		</tr>
+<tr>
+			<td class="rank">10</td>
+			<td class="handle">@nicholaslynn.bsky.social</td>
+			<td class="pts">90</td>
+			<td>28</td>
+			<td>6</td>
+			<td>16</td>
+			<td class="deck-cards">Mishra's Workshop, Ensnaring Bridge, Scalding Tongs</td>
+		</tr>
+<tr>
+			<td class="rank">11</td>
+			<td class="handle">@rnasir.bsky.social</td>
+			<td class="pts">88</td>
+			<td>22</td>
+			<td>22</td>
+			<td>6</td>
+			<td class="deck-cards">Swamp, Thoughtseize, The Rack</td>
+		</tr>
+<tr>
+			<td class="rank">12</td>
+			<td class="handle">@azax.bsky.social</td>
+			<td class="pts">88</td>
+			<td>28</td>
+			<td>4</td>
+			<td>18</td>
+			<td class="deck-cards">Sand Silos, Sand Silos, Jace, Wielder of Mysteries</td>
+		</tr>
+<tr>
+			<td class="rank">13</td>
+			<td class="handle">@tvanl.bsky.social</td>
+			<td class="pts">86</td>
+			<td>26</td>
+			<td>8</td>
+			<td>16</td>
+			<td class="deck-cards">Boseiju, Who Endures, Mayor of Avabruck // Howlpack Alpha, Hickory Woodlot</td>
+		</tr>
+<tr>
+			<td class="rank">14</td>
+			<td class="handle">@nickchk.com</td>
+			<td class="pts">84</td>
+			<td>22</td>
+			<td>18</td>
+			<td>10</td>
+			<td class="deck-cards">Lion's Eye Diamond, Emrakul, the Aeons Torn, Shelldock Isle</td>
+		</tr>
+<tr>
+			<td class="rank">15</td>
+			<td class="handle">@jechtmurray.bsky.social</td>
+			<td class="pts">68</td>
+			<td>18</td>
+			<td>14</td>
+			<td>18</td>
+			<td class="deck-cards">Peat Bog, Sanctum of Stone Fangs, Smallpox</td>
+		</tr>
+<tr>
+			<td class="rank">16</td>
+			<td class="handle">@yonszenshpensz.bsky.social</td>
+			<td class="pts">64</td>
+			<td>20</td>
+			<td>4</td>
+			<td>26</td>
+			<td class="deck-cards">Saprazzan Skerry, Dark Depths, Thespian's Stage</td>
+		</tr>
+<tr>
+			<td class="rank">17</td>
+			<td class="handle">@maxmilstein.bsky.social</td>
+			<td class="pts">64</td>
+			<td>18</td>
+			<td>10</td>
+			<td>22</td>
+			<td class="deck-cards">Allosaurus Shepherd, Bounty of the Hunt, Chancellor of the Tangle</td>
+		</tr>
+<tr>
+			<td class="rank">18</td>
+			<td class="handle">@achilleslaststand.bsky.social</td>
+			<td class="pts">62</td>
+			<td>20</td>
+			<td>2</td>
+			<td>28</td>
+			<td class="deck-cards">Bitterbloom Bearer, Demolition Field, Peat Bog</td>
+		</tr>
+<tr>
+			<td class="rank">19</td>
+			<td class="handle">@elyv.bsky.social</td>
+			<td class="pts">56</td>
+			<td>14</td>
+			<td>14</td>
+			<td>22</td>
+			<td class="deck-cards">Force of Will, Force of Negation, Memnite</td>
+		</tr>
+<tr>
+			<td class="rank">20</td>
+			<td class="handle">@egirlstravinsky.bsky.social</td>
+			<td class="pts">46</td>
+			<td>12</td>
+			<td>10</td>
+			<td>28</td>
+			<td class="deck-cards">Inkmoth Nexus, Force Spike, Island</td>
+		</tr>
+<tr>
+			<td class="rank">21</td>
+			<td class="handle">@bannedhat.bsky.social</td>
+			<td class="pts">46</td>
+			<td>14</td>
+			<td>4</td>
+			<td>32</td>
+			<td class="deck-cards">Mox Sapphire, Mutavault, Tide Shaper</td>
+		</tr>
+<tr>
+			<td class="rank">22</td>
+			<td class="handle">@ryanstephens.bsky.social</td>
+			<td class="pts">44</td>
+			<td>12</td>
+			<td>8</td>
+			<td>30</td>
+			<td class="deck-cards">Wasteland, Dryad Arbor, Dunes of the Dead</td>
+		</tr>
+<tr>
+			<td class="rank">23</td>
+			<td class="handle">@donotpostmore.bsky.social</td>
+			<td class="pts">30</td>
+			<td>10</td>
+			<td>0</td>
+			<td>40</td>
+			<td class="deck-cards">Treetop Village, Golgari Rot Farm, Helix Pinnacle</td>
+		</tr>
+<tr>
+			<td class="rank">24</td>
+			<td class="handle">@alligatortakes.bsky.social</td>
+			<td class="pts">26</td>
+			<td>8</td>
+			<td>2</td>
+			<td>40</td>
+			<td class="deck-cards">Invisible Stalker, Gut Shot, Saprazzan Skerry</td>
+		</tr>
+<tr>
+			<td class="rank">25</td>
+			<td class="handle">@markdash.bsky.social</td>
+			<td class="pts">14</td>
+			<td>4</td>
+			<td>2</td>
+			<td>44</td>
+			<td class="deck-cards">Dryad Arbor, Skyshroud Cutter, Skyshroud Cutter</td>
+		</tr>
+<tr>
+			<td class="rank">26</td>
+			<td class="handle">@drunkonmystery.bsky.social</td>
+			<td class="pts">2</td>
+			<td>0</td>
+			<td>2</td>
+			<td>48</td>
+			<td class="deck-cards">Snow-Covered Plains, Suntail Hawk, Suntail Hawk</td>
+		</tr></tbody>
 </table>
-<p>Standings are ranked by total points. An all-time leaderboard tracks cumulative results across rounds.</p>
 
-<h2>Rules</h2>
-<ul>
-  <li><strong>3-card hand, no library</strong> — you start with all 3 cards in hand. There is no deck to draw from.</li>
-  <li><strong>Normal Magic rules</strong> with one exception: drawing from an empty library does not cause you to lose.</li>
-  <li><strong>All of Magic is legal</strong> — any card ever printed, with a few structural bans (un-sets, ante cards, subgames, wishes/sideboard cards).</li>
-  <li><strong>Worst-outcome convention</strong> — coin flips, dice rolls, and random effects resolve to the worst outcome for the controller.</li>
-  <li><strong>No turn cap</strong> — games end at 0 life, 10 poison, alt-win conditions, or stalemate (no winning line exists for either player).</li>
-  <li><strong>Duplicates are fine</strong> — you can submit 3 copies of the same card.</li>
-  <li><strong>Winner's cards are banned</strong> — all 3 cards from each round-winning deck are banned for future rounds. Keeps the meta fresh.</li>
-</ul>
 
-<h2>Judges</h2>
-<p>Some matchups involve complex interactions that can't be automatically resolved — weird board states, ambiguous rules interactions, or cards that require judgment calls. These are flagged as <strong>unresolved</strong> and assigned to designated human judges.</p>
-<p>Judges are MTG players trusted to determine the correct outcome. Their rulings are final for that matchup.</p>
-
-<h2>Results</h2>
-<p>After evaluation, the bot posts results publicly as a thread with:</p>
-<ul>
-  <li><strong>Card images</strong> for each player's deck</li>
-  <li><strong>Play-by-play narratives</strong> describing how each matchup plays out</li>
-  <li><strong>Per-direction verdicts</strong> (on the play vs. on the draw)</li>
-  <li><strong>Final standings</strong> for the round</li>
-</ul>
-<p>Working out the lines and debating matchup results is part of the fun.</p>
-
-<h2>Strategy Tips</h2>
-<ul>
-  <li>Think about what others will submit. The metagame matters more than raw power.</li>
-  <li>Fast aggro (turn 1-2 kills) beats slow combo. Disruption beats fast aggro. Resilient threats beat disruption.</li>
-  <li>Lands count as cards. A deck of 3 spells with no mana can't cast anything.</li>
-  <li>Remember: no library. Cards that draw or tutor are mostly dead.</li>
-  <li>Worst-outcome convention means <code>Mana Crypt</code> always deals 3 to you.</li>
-</ul>
-
-<h2>FAQ</h2>
-<ul>
-  <li><strong>Can I use any Magic card?</strong> — Yes, from any set, any era. The only bans are structural (un-sets, ante, subgames, wishes) plus winner bans from previous rounds. See the banned list below.</li>
-  <li><strong>What about split cards / DFCs / adventures?</strong> — Submit the front face name. The card works normally (you can cast either side, transform, etc.).</li>
-  <li><strong>Can I change my deck?</strong> — Yes, DM the bot again with 3 new card names before the deadline. Your last submission counts.</li>
-  <li><strong>How long is a round?</strong> — Set by the judge when starting the round. Usually 24-48 hours.</li>
-  <li><strong>Who evaluates the matchups?</strong> — An AI evaluator reads the oracle text and 3CB rules, then determines optimal play for both sides. Complex cases go to human judges.</li>
-  <li><strong>What if I think a result is wrong?</strong> — All reasoning is preserved. Discuss it publicly — that's half the game.</li>
-  <li><strong>Why can't I DM the bot?</strong> — You need to follow <code>@3cblue.bsky.social</code> first. Bluesky requires a follow relationship to open DMs.</li>
-</ul>
+		<h2>Matchup Matrix</h2>
+		<div class="matrix-wrap">
+			<table class="matrix">
+				<thead><tr><th></th><th class="matrix-col" title="@lessdismalsci.bsky.social">lessdis…</th><th class="matrix-col" title="@mutantmell.net">mutantm…</th><th class="matrix-col" title="@proptermalone.bsky.social">propter…</th><th class="matrix-col" title="@brythefryguy.bsky.social">brythef…</th><th class="matrix-col" title="@rivertam.bsky.social">riverta…</th><th class="matrix-col" title="@jslandau.cc">jslanda…</th><th class="matrix-col" title="@tomscud.bsky.social">tomscud…</th><th class="matrix-col" title="@skis-n-reads.bsky.social">skis-n-…</th><th class="matrix-col" title="@meatballwalrus.bsky.social">meatbal…</th><th class="matrix-col" title="@nicholaslynn.bsky.social">nichola…</th><th class="matrix-col" title="@rnasir.bsky.social">rnasir.…</th><th class="matrix-col" title="@azax.bsky.social">azax.bs…</th><th class="matrix-col" title="@tvanl.bsky.social">tvanl.b…</th><th class="matrix-col" title="@nickchk.com">nickchk…</th><th class="matrix-col" title="@jechtmurray.bsky.social">jechtmu…</th><th class="matrix-col" title="@yonszenshpensz.bsky.social">yonszen…</th><th class="matrix-col" title="@maxmilstein.bsky.social">maxmils…</th><th class="matrix-col" title="@achilleslaststand.bsky.social">achille…</th><th class="matrix-col" title="@elyv.bsky.social">elyv.bs…</th><th class="matrix-col" title="@egirlstravinsky.bsky.social">egirlst…</th><th class="matrix-col" title="@bannedhat.bsky.social">bannedh…</th><th class="matrix-col" title="@ryanstephens.bsky.social">ryanste…</th><th class="matrix-col" title="@donotpostmore.bsky.social">donotpo…</th><th class="matrix-col" title="@alligatortakes.bsky.social">alligat…</th><th class="matrix-col" title="@markdash.bsky.social">markdas…</th><th class="matrix-col" title="@drunkonmystery.bsky.social">drunkon…</th></tr></thead>
+				<tbody><tr><th class="matrix-row" title="@lessdismalsci.bsky.social">lessdis…</th><td class="">—</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td></tr>
+<tr><th class="matrix-row" title="@mutantmell.net">mutantm…</th><td class="res-l">L</td><td class="">—</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td></tr>
+<tr><th class="matrix-row" title="@proptermalone.bsky.social">propter…</th><td class="res-l">L</td><td class="res-d">D</td><td class="">—</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td></tr>
+<tr><th class="matrix-row" title="@brythefryguy.bsky.social">brythef…</th><td class="res-l">L</td><td class="res-d">D</td><td class="res-w">W</td><td class="">—</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td></tr>
+<tr><th class="matrix-row" title="@rivertam.bsky.social">riverta…</th><td class="res-w">W</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-w">W</td><td class="">—</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td></tr>
+<tr><th class="matrix-row" title="@jslandau.cc">jslanda…</th><td class="res-w">W</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-d">D</td><td class="">—</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td></tr>
+<tr><th class="matrix-row" title="@tomscud.bsky.social">tomscud…</th><td class="res-d">D</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-l">L</td><td class="res-l">L</td><td class="">—</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td></tr>
+<tr><th class="matrix-row" title="@skis-n-reads.bsky.social">skis-n-…</th><td class="res-d">D</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-d">D</td><td class="">—</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td></tr>
+<tr><th class="matrix-row" title="@meatballwalrus.bsky.social">meatbal…</th><td class="res-l">L</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-d">D</td><td class="res-d">D</td><td class="">—</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td></tr>
+<tr><th class="matrix-row" title="@nicholaslynn.bsky.social">nichola…</th><td class="res-w">W</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-w">W</td><td class="">—</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td></tr>
+<tr><th class="matrix-row" title="@rnasir.bsky.social">rnasir.…</th><td class="res-l">L</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-w">W</td><td class="">—</td><td class="res-w">W</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td></tr>
+<tr><th class="matrix-row" title="@azax.bsky.social">azax.bs…</th><td class="res-d">D</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-l">L</td><td class="">—</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td></tr>
+<tr><th class="matrix-row" title="@tvanl.bsky.social">tvanl.b…</th><td class="res-l">L</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-d">D</td><td class="res-l">L</td><td class="">—</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-w">W</td></tr>
+<tr><th class="matrix-row" title="@nickchk.com">nickchk…</th><td class="res-w">W</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-d">D</td><td class="">—</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td></tr>
+<tr><th class="matrix-row" title="@jechtmurray.bsky.social">jechtmu…</th><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-d">D</td><td class="">—</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td></tr>
+<tr><th class="matrix-row" title="@yonszenshpensz.bsky.social">yonszen…</th><td class="res-w">W</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-d">D</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-d">D</td><td class="">—</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td></tr>
+<tr><th class="matrix-row" title="@maxmilstein.bsky.social">maxmils…</th><td class="res-l">L</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="">—</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-d">D</td></tr>
+<tr><th class="matrix-row" title="@achilleslaststand.bsky.social">achille…</th><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-l">L</td><td class="">—</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td></tr>
+<tr><th class="matrix-row" title="@elyv.bsky.social">elyv.bs…</th><td class="res-d">D</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-d">D</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-w">W</td><td class="">—</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-w">W</td></tr>
+<tr><th class="matrix-row" title="@egirlstravinsky.bsky.social">egirlst…</th><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-d">D</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-w">W</td><td class="">—</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-w">W</td></tr>
+<tr><th class="matrix-row" title="@bannedhat.bsky.social">bannedh…</th><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-w">W</td><td class="">—</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td></tr>
+<tr><th class="matrix-row" title="@ryanstephens.bsky.social">ryanste…</th><td class="res-l">L</td><td class="res-d">D</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-l">L</td><td class="">—</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-w">W</td></tr>
+<tr><th class="matrix-row" title="@donotpostmore.bsky.social">donotpo…</th><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-l">L</td><td class="">—</td><td class="res-w">W</td><td class="res-w">W</td><td class="res-w">W</td></tr>
+<tr><th class="matrix-row" title="@alligatortakes.bsky.social">alligat…</th><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="">—</td><td class="res-w">W</td><td class="res-w">W</td></tr>
+<tr><th class="matrix-row" title="@markdash.bsky.social">markdas…</th><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-w">W</td><td class="res-l">L</td><td class="res-l">L</td><td class="">—</td><td class="res-w">W</td></tr>
+<tr><th class="matrix-row" title="@drunkonmystery.bsky.social">drunkon…</th><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-d">D</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="res-l">L</td><td class="">—</td></tr></tbody>
+			</table>
+		</div>
 
 <h2>Banned Cards</h2>
-<p>Structural bans (always banned):</p>
-<ul>
-  <li>Un-set cards (Unglued, Unhinged, Unstable, Unfinity acorn-stamped, etc.)</li>
-  <li>Ante cards (<code>Contract from Below</code>, <code>Jeweled Bird</code>, etc.)</li>
-  <li>Subgame cards (<code>Shahrazad</code>)</li>
-  <li>Wishes and sideboard cards (<code>Burning Wish</code>, <code>Glittering Wish</code>, etc.)</li>
+<ul class="banned-list">
+<li>Black Lotus <span class="dim">(R2)</span></li>
+<li>Chancellor of the Annex <span class="dim">(R1)</span></li>
+<li>Chancellor of the Forge <span class="dim">(R3)</span></li>
+<li>Eumidian Hatchery <span class="dim">(R1)</span></li>
+<li>Ghost Quarter <span class="dim">(R3)</span></li>
+<li>Pact of Negation <span class="dim">(R2)</span></li>
+<li>Pyrokinesis <span class="dim">(R3)</span></li>
+<li>Strip Mine <span class="dim">(R1)</span></li>
+<li>Thassa's Oracle <span class="dim">(R2)</span></li>
 </ul>
 
-<p>Winner bans (cards from winning decks of previous rounds):</p>
-<div class="card" id="winner-bans">
-  <em>None yet — first round hasn't started!</em>
-</div>
-
 <footer>
-  <p>3CBlue is run by <a href="https://bsky.app/profile/proptermalone.bsky.social">@proptermalone.bsky.social</a>. Source code and army of robots by the same.</p>
+	<p>Auto-generated dashboard. <a href="/3cb/faq">FAQ & Rules</a></p>
 </footer>
 
 </body>
