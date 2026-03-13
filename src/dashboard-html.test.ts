@@ -50,9 +50,9 @@ function makeMockData(overrides?: Partial<DashboardData>): DashboardData {
 			llmReasoning: null,
 			narrative: null,
 			postUri: null,
-		onPlayVerdict: null,
-		onDrawVerdict: null,
-		correctionCount: 0,
+			onPlayVerdict: null,
+			onDrawVerdict: null,
+			correctionCount: 0,
 		},
 	];
 
@@ -241,8 +241,9 @@ describe("generateDashboardHtml", () => {
 		const html = generateDashboardHtml(
 			makeMockData({ players, matchups: [], standings }),
 		);
-		expect(html).not.toContain("<script>");
+		// malicious name must be escaped even though legitimate <script> blocks exist
 		expect(html).toContain("&lt;script&gt;");
+		expect(html).not.toContain('"><script>');
 	});
 
 	it("returns valid HTML structure", () => {

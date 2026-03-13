@@ -99,8 +99,18 @@ function getPairResult(
 				const playNarr = data.playNarrative ?? "";
 				const drawNarr = data.drawNarrative ?? "";
 				if (playNarr || drawNarr) {
-					const playLabel = playChar === "W" ? `${hA} wins` : playChar === "L" ? `${hB} wins` : "Draw";
-					const drawLabel = drawChar === "W" ? `${hA} wins` : drawChar === "L" ? `${hB} wins` : "Draw";
+					const playLabel =
+						playChar === "W"
+							? `${hA} wins`
+							: playChar === "L"
+								? `${hB} wins`
+								: "Draw";
+					const drawLabel =
+						drawChar === "W"
+							? `${hA} wins`
+							: drawChar === "L"
+								? `${hB} wins`
+								: "Draw";
 					const pNarr = isP0 ? playNarr : drawNarr;
 					const dNarr = isP0 ? drawNarr : playNarr;
 					const cardsA = pA ? pA.cards.join(", ") : "";
@@ -269,7 +279,9 @@ ${bannedSection(bannedCards)}`,
 					.map((colDid) => {
 						const result = getPairResult(matchups, rowDid, colDid, players);
 						const cls = resultClass(result?.display ?? null);
-						const titleAttr = result?.tooltip ? ` title="${escapeHtml(result.tooltip)}"` : "";
+						const titleAttr = result?.tooltip
+							? ` title="${escapeHtml(result.tooltip)}"`
+							: "";
 						return `<td class="${cls}"${titleAttr}>${result?.display ?? ""}</td>`;
 					})
 					.join("");
@@ -386,14 +398,15 @@ function wrapHtml(round: { id: number; phase: string }, body: string): string {
   .banned-list li { padding: 0.2rem 0; }
   @media (max-width: 600px) { .banned-list { column-count: 1; } .standings .deck-cards { display: none; } }
 
-  /* Narrative detail panel */
-  .narr-detail { position: fixed; bottom: 0; left: 0; right: 0; background: var(--card); border-top: 2px solid var(--accent); padding: 1rem 1.5rem; font-size: 0.9rem; line-height: 1.5; z-index: 100; max-height: 40vh; overflow-y: auto; display: none; }
-  .narr-detail.active { display: block; }
-  .narr-detail .narr-close { float: right; cursor: pointer; color: var(--dim); font-size: 1.2rem; padding: 0 0.5rem; }
-  .narr-detail .narr-close:hover { color: var(--fg); }
-  .narr-detail .narr-label { color: var(--accent); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; margin-top: 0.5rem; }
-  .narr-detail .narr-label:first-of-type { margin-top: 0; }
-  .narr-detail .narr-text { color: var(--fg); margin: 0.2rem 0 0.5rem; }
+  /* Inline narrative expansion */
+  .narr-row td { padding: 0 !important; border: none !important; }
+  .narr-inline { background: var(--card); border: 1px solid var(--accent); border-radius: 6px; padding: 0.75rem 1rem; margin: 0.25rem 0; font-size: 0.85rem; line-height: 1.5; }
+  .narr-inline .narr-close { float: right; cursor: pointer; color: var(--dim); font-size: 1.1rem; padding: 0 0.3rem; }
+  .narr-inline .narr-close:hover { color: var(--fg); }
+  .narr-inline .narr-decklist { color: var(--dim); font-size: 0.82rem; margin-bottom: 0.2rem; }
+  .narr-inline .narr-label { color: var(--accent); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; margin-top: 0.4rem; }
+  .narr-inline .narr-text { color: var(--fg); margin: 0.15rem 0 0.4rem; }
+  .matrix td[data-narr] { cursor: pointer; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 
   footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--dim); font-size: 0.85rem; }
   a { color: var(--accent); }
@@ -403,49 +416,81 @@ function wrapHtml(round: { id: number; phase: string }, body: string): string {
 
 ${body}
 
-<div class="narr-detail" id="narr-detail">
-	<span class="narr-close" id="narr-close">✕</span>
-	<div id="narr-content"></div>
-</div>
-
 <footer>
 	<p>Auto-generated dashboard. <a href="/3cb/faq">FAQ & Rules</a></p>
 </footer>
 
 <script>
 (function() {
-	const panel = document.getElementById('narr-detail');
-	const content = document.getElementById('narr-content');
-	const close = document.getElementById('narr-close');
-	if (!panel || !content || !close) return;
+	var matrix = document.querySelector('.matrix');
+	if (!matrix) return;
 
-	document.querySelectorAll('.matrix td[title]').forEach(function(td) {
-		td.style.cursor = 'pointer';
-		td.addEventListener('click', function() {
-			const title = td.getAttribute('title');
-			if (!title) return;
-			const lines = title.split('\\n');
-			let html = '';
-			for (const line of lines) {
-				const match = line.match(/^(.+?):\\s*(.+)$/);
+	// Move title → data-narr to suppress native tooltip on touch
+	matrix.querySelectorAll('td[title]').forEach(function(td) {
+		td.setAttribute('data-narr', td.getAttribute('title'));
+		td.removeAttribute('title');
+	});
+
+	function closeNarr() {
+		var old = matrix.querySelector('.narr-row');
+		if (old) old.remove();
+	}
+
+	function buildHtml(raw) {
+		var lines = raw.split('\\n');
+		var html = '<span class="narr-close">\\u2715</span>';
+		var inDecks = true;
+		for (var i = 0; i < lines.length; i++) {
+			var line = lines[i].trim();
+			if (!line) { inDecks = false; continue; }
+			if (inDecks && line.indexOf(' on play ') === -1 && line.indexOf(' on draw ') === -1) {
+				html += '<div class="narr-decklist">' + line + '</div>';
+			} else {
+				inDecks = false;
+				var match = line.match(/^(.+?on (?:play|draw) \\(.+?\\)):\\s*(.+)$/);
 				if (match) {
 					html += '<div class="narr-label">' + match[1] + '</div>';
 					html += '<div class="narr-text">' + match[2] + '</div>';
 				} else {
-					html += '<div class="narr-text">' + line + '</div>';
+					var m2 = line.match(/^(.+?):\\s*(.+)$/);
+					if (m2) {
+						html += '<div class="narr-label">' + m2[1] + '</div>';
+						html += '<div class="narr-text">' + m2[2] + '</div>';
+					} else {
+						html += '<div class="narr-text">' + line + '</div>';
+					}
 				}
 			}
-			content.innerHTML = html;
-			panel.classList.add('active');
-		});
-	});
+		}
+		return html;
+	}
 
-	close.addEventListener('click', function() {
-		panel.classList.remove('active');
+	matrix.addEventListener('click', function(e) {
+		var td = e.target.closest('td[data-narr]');
+		if (!td) {
+			if (e.target.closest('.narr-close')) { closeNarr(); }
+			return;
+		}
+		var raw = td.getAttribute('data-narr');
+		if (!raw) return;
+		closeNarr();
+		var tr = td.closest('tr');
+		var colCount = tr.children.length;
+		var narrTr = document.createElement('tr');
+		narrTr.className = 'narr-row';
+		var narrTd = document.createElement('td');
+		narrTd.setAttribute('colspan', colCount);
+		var narrDiv = document.createElement('div');
+		narrDiv.className = 'narr-inline';
+		narrDiv.innerHTML = buildHtml(raw);
+		narrTd.appendChild(narrDiv);
+		narrTr.appendChild(narrTd);
+		tr.parentNode.insertBefore(narrTr, tr.nextSibling);
+		narrDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 	});
 
 	document.addEventListener('keydown', function(e) {
-		if (e.key === 'Escape') panel.classList.remove('active');
+		if (e.key === 'Escape') closeNarr();
 	});
 })();
 </script>
