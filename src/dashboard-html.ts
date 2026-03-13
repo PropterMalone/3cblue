@@ -84,7 +84,12 @@ function getPairResult(
 			if (data.onPlayVerdict && data.onDrawVerdict) {
 				const playChar = verdictChar(data.onPlayVerdict, isP0);
 				const drawChar = verdictChar(data.onDrawVerdict, isP0);
-				display = `${playChar}${drawChar}`;
+				// Convention: first letter = on-play result, always show as WL/WD/DL not LW/DW/LD
+				const sorted = [playChar, drawChar].sort((a, b) => {
+					const order: Record<string, number> = { W: 0, D: 1, L: 2 };
+					return (order[a] ?? 9) - (order[b] ?? 9);
+				});
+				display = `${sorted[0]}${sorted[1]}`;
 
 				// Build tooltip from narratives
 				const pA = players.get(playerA);
