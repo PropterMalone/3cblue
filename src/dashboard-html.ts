@@ -49,12 +49,18 @@ function verdictChar(verdict: string, isP0: boolean): string {
 	return "D";
 }
 
+interface PairResult {
+	display: string;
+	tooltip: string;
+}
+
 function getPairResult(
 	matchups: DbMatchup[],
 	playerA: string,
 	playerB: string,
-): string | null {
-	if (playerA === playerB) return "—";
+	players: Map<string, { handle: string; cards: [string, string, string] }>,
+): PairResult | null {
+	if (playerA === playerB) return { display: "—", tooltip: "" };
 
 	const m = matchups.find(
 		(m) =>
@@ -64,20 +70,39 @@ function getPairResult(
 	if (!m) return null;
 
 	const outcome = m.judgeResolution ?? m.outcome;
-	if (outcome === "unresolved") return "?";
+	if (outcome === "unresolved") return { display: "?", tooltip: "" };
 
 	const isP0 = m.player0Did === playerA;
+
+	let display: string;
+	let tooltip = "";
 
 	// Try per-direction from narrative JSON
 	try {
 		if (m.narrative) {
 			const data = JSON.parse(m.narrative);
 			if (data.onPlayVerdict && data.onDrawVerdict) {
-				// onPlay/onDraw are from p0's perspective
-				// If playerA is p0, on-play = playerA on play; if playerA is p1, flip
 				const playChar = verdictChar(data.onPlayVerdict, isP0);
 				const drawChar = verdictChar(data.onDrawVerdict, isP0);
-				return `${playChar}${drawChar}`;
+				display = `${playChar}${drawChar}`;
+
+				// Build tooltip from narratives
+				const pA = players.get(playerA);
+				const pB = players.get(playerB);
+				const hA = pA ? pA.handle.replace(".bsky.social", "") : "P0";
+				const hB = pB ? pB.handle.replace(".bsky.social", "") : "P1";
+				const playNarr = data.playNarrative ?? "";
+				const drawNarr = data.drawNarrative ?? "";
+				if (playNarr || drawNarr) {
+					// "On play" means playerA goes first from this cell's perspective
+					const playLabel = playChar === "W" ? `${hA} wins` : playChar === "L" ? `${hB} wins` : "Draw";
+					const drawLabel = drawChar === "W" ? `${hA} wins` : drawChar === "L" ? `${hB} wins` : "Draw";
+					// Narrative text is from p0 perspective — swap if needed
+					const pNarr = isP0 ? playNarr : drawNarr;
+					const dNarr = isP0 ? drawNarr : playNarr;
+					tooltip = `${hA} on play (${playLabel}): ${pNarr}\n${hA} on draw (${drawLabel}): ${dNarr}`;
+				}
+				return { display, tooltip };
 			}
 		}
 	} catch {
@@ -87,14 +112,18 @@ function getPairResult(
 	// Legacy fallback: single-char result
 	switch (outcome) {
 		case "player0_wins":
-			return isP0 ? "W" : "L";
+			display = isP0 ? "W" : "L";
+			break;
 		case "player1_wins":
-			return isP0 ? "L" : "W";
+			display = isP0 ? "L" : "W";
+			break;
 		case "draw":
-			return "D";
+			display = "D";
+			break;
 		default:
-			return "?";
+			display = "?";
 	}
+	return { display, tooltip };
 }
 
 function resultClass(result: string | null): string {
@@ -233,9 +262,10 @@ ${bannedSection(bannedCards)}`,
 				const label = p ? escapeHtml(p.handle) : "?";
 				const cells = playerOrder
 					.map((colDid) => {
-						const result = getPairResult(matchups, rowDid, colDid);
-						const cls = resultClass(result);
-						return `<td class="${cls}">${result ?? ""}</td>`;
+						const result = getPairResult(matchups, rowDid, colDid, players);
+						const cls = resultClass(result?.display ?? null);
+						const titleAttr = result?.tooltip ? ` title="${escapeHtml(result.tooltip)}"` : "";
+						return `<td class="${cls}"${titleAttr}>${result?.display ?? ""}</td>`;
 					})
 					.join("");
 				return `<tr><th class="matrix-row" title="@${label}">${label.length > 8 ? `${label.slice(0, 7)}…` : label}</th>${cells}</tr>`;
@@ -351,6 +381,15 @@ function wrapHtml(round: { id: number; phase: string }, body: string): string {
   .banned-list li { padding: 0.2rem 0; }
   @media (max-width: 600px) { .banned-list { column-count: 1; } .standings .deck-cards { display: none; } }
 
+  /* Narrative detail panel */
+  .narr-detail { position: fixed; bottom: 0; left: 0; right: 0; background: var(--card); border-top: 2px solid var(--accent); padding: 1rem 1.5rem; font-size: 0.9rem; line-height: 1.5; z-index: 100; max-height: 40vh; overflow-y: auto; display: none; }
+  .narr-detail.active { display: block; }
+  .narr-detail .narr-close { float: right; cursor: pointer; color: var(--dim); font-size: 1.2rem; padding: 0 0.5rem; }
+  .narr-detail .narr-close:hover { color: var(--fg); }
+  .narr-detail .narr-label { color: var(--accent); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; margin-top: 0.5rem; }
+  .narr-detail .narr-label:first-of-type { margin-top: 0; }
+  .narr-detail .narr-text { color: var(--fg); margin: 0.2rem 0 0.5rem; }
+
   footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--dim); font-size: 0.85rem; }
   a { color: var(--accent); }
 </style>
@@ -359,9 +398,52 @@ function wrapHtml(round: { id: number; phase: string }, body: string): string {
 
 ${body}
 
+<div class="narr-detail" id="narr-detail">
+	<span class="narr-close" id="narr-close">✕</span>
+	<div id="narr-content"></div>
+</div>
+
 <footer>
 	<p>Auto-generated dashboard. <a href="/3cb/faq">FAQ & Rules</a></p>
 </footer>
+
+<script>
+(function() {
+	const panel = document.getElementById('narr-detail');
+	const content = document.getElementById('narr-content');
+	const close = document.getElementById('narr-close');
+	if (!panel || !content || !close) return;
+
+	document.querySelectorAll('.matrix td[title]').forEach(function(td) {
+		td.style.cursor = 'pointer';
+		td.addEventListener('click', function() {
+			const title = td.getAttribute('title');
+			if (!title) return;
+			const lines = title.split('\\n');
+			let html = '';
+			for (const line of lines) {
+				const match = line.match(/^(.+?):\\s*(.+)$/);
+				if (match) {
+					html += '<div class="narr-label">' + match[1] + '</div>';
+					html += '<div class="narr-text">' + match[2] + '</div>';
+				} else {
+					html += '<div class="narr-text">' + line + '</div>';
+				}
+			}
+			content.innerHTML = html;
+			panel.classList.add('active');
+		});
+	});
+
+	close.addEventListener('click', function() {
+		panel.classList.remove('active');
+	});
+
+	document.addEventListener('keydown', function(e) {
+		if (e.key === 'Escape') panel.classList.remove('active');
+	});
+})();
+</script>
 
 </body>
 </html>`;
