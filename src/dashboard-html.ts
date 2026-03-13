@@ -94,13 +94,13 @@ function getPairResult(
 				const playNarr = data.playNarrative ?? "";
 				const drawNarr = data.drawNarrative ?? "";
 				if (playNarr || drawNarr) {
-					// "On play" means playerA goes first from this cell's perspective
 					const playLabel = playChar === "W" ? `${hA} wins` : playChar === "L" ? `${hB} wins` : "Draw";
 					const drawLabel = drawChar === "W" ? `${hA} wins` : drawChar === "L" ? `${hB} wins` : "Draw";
-					// Narrative text is from p0 perspective — swap if needed
 					const pNarr = isP0 ? playNarr : drawNarr;
 					const dNarr = isP0 ? drawNarr : playNarr;
-					tooltip = `${hA} on play (${playLabel}): ${pNarr}\n${hA} on draw (${drawLabel}): ${dNarr}`;
+					const cardsA = pA ? pA.cards.join(", ") : "";
+					const cardsB = pB ? pB.cards.join(", ") : "";
+					tooltip = `${hA}: ${cardsA}\n${hB}: ${cardsB}\n\n${hA} on play (${playLabel}): ${pNarr}\n${hA} on draw (${drawLabel}): ${dNarr}`;
 				}
 				return { display, tooltip };
 			}
