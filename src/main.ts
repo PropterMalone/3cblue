@@ -2,8 +2,8 @@
 
 // Entry point for the 3CBlue bot.
 
-import { type BotConfig, ThreeCBlueBot } from "./bluesky-bot.js";
 import { createAgent } from "propter-bsky-kit";
+import { type BotConfig, ThreeCBlueBot } from "./bluesky-bot.js";
 import { generateDashboardFromDb } from "./dashboard-html.js";
 import {
 	addJudge,
@@ -13,6 +13,7 @@ import {
 	getMatchupsForRound,
 	getSubmissionsForRound,
 } from "./database.js";
+import { applyUpdates } from "./round-updates.js";
 
 function loadConfig(): BotConfig {
 	const service = process.env.BSKY_SERVICE ?? "https://bsky.social";
@@ -66,6 +67,23 @@ async function main(): Promise<void> {
 			}
 			addJudge(db, did);
 			console.log(`[cli] added judge: ${did}`);
+			return;
+		}
+		case "apply-updates": {
+			const roundId = Number.parseInt(process.argv[3] ?? "", 10);
+			if (!roundId) {
+				console.error("[cli] usage: apply-updates <round-id> [--dry-run]");
+				process.exit(1);
+			}
+			const dryRun = process.argv.includes("--dry-run");
+			console.log(
+				`[cli] ${dryRun ? "dry-run" : "applying"} updates for round ${roundId}`,
+			);
+			const result = applyUpdates(db, roundId, dryRun);
+			console.log(
+				`[cli] applied: ${result.applied}, skipped: ${result.skipped}, errors: ${result.errors.length}`,
+			);
+			for (const err of result.errors) console.error(`  error: ${err}`);
 			return;
 		}
 		case "status": {
