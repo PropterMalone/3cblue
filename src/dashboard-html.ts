@@ -126,11 +126,89 @@ function getPairResult(
 					const cardsB = pB ? pB.cards.join(", ") : "";
 					tooltip = `${hA}: ${cardsA}\n${hB}: ${cardsB}\n\n${hA} on play (${playLabel}): ${pNarr}\n${hA} on draw (${drawLabel}): ${dNarr}`;
 				}
-				return { display, tooltip, cardsA: pA?.cards, cardsB: pB?.cards, handleA: hA, handleB: hB };
+				return {
+					display,
+					tooltip,
+					cardsA: pA?.cards,
+					cardsB: pB?.cards,
+					handleA: hA,
+					handleB: hB,
+				};
 			}
 		}
 	} catch {
 		// malformed narrative, fall through
+	}
+
+	// Fallback: use per-direction verdict columns if available
+	if (m.onPlayVerdict && m.onDrawVerdict) {
+		// Columns store W/L/D from p0's perspective
+		const p0PlayChar = m.onPlayVerdict;
+		const p0DrawChar = m.onDrawVerdict;
+		const playChar = isP0
+			? p0PlayChar
+			: p0PlayChar === "W"
+				? "L"
+				: p0PlayChar === "L"
+					? "W"
+					: "D";
+		const drawChar = isP0
+			? p0DrawChar
+			: p0DrawChar === "W"
+				? "L"
+				: p0DrawChar === "L"
+					? "W"
+					: "D";
+		const sorted = [playChar, drawChar].sort((a, b) => {
+			const order: Record<string, number> = { W: 0, D: 1, L: 2 };
+			return (order[a] ?? 9) - (order[b] ?? 9);
+		});
+		display = `${sorted[0]}${sorted[1]}`;
+
+		// Build tooltip from llmReasoning if available
+		const pA = players.get(playerA);
+		const pB = players.get(playerB);
+		const hA = pA ? pA.handle.replace(".bsky.social", "") : "P0";
+		const hB = pB ? pB.handle.replace(".bsky.social", "") : "P1";
+		if (m.llmReasoning) {
+			const cardsA = pA ? pA.cards.join(", ") : "";
+			const cardsB = pB ? pB.cards.join(", ") : "";
+			const hAPlayChar = isP0
+				? p0PlayChar
+				: p0DrawChar === "W"
+					? "L"
+					: p0DrawChar === "L"
+						? "W"
+						: "D";
+			const hADrawChar = isP0
+				? p0DrawChar
+				: p0PlayChar === "W"
+					? "L"
+					: p0PlayChar === "L"
+						? "W"
+						: "D";
+			const playLabel =
+				hAPlayChar === "W"
+					? `${hA} wins`
+					: hAPlayChar === "L"
+						? `${hB} wins`
+						: "Draw";
+			const drawLabel =
+				hADrawChar === "W"
+					? `${hA} wins`
+					: hADrawChar === "L"
+						? `${hB} wins`
+						: "Draw";
+			tooltip = `${hA}: ${cardsA}\n${hB}: ${cardsB}\n\n${hA} on play (${playLabel}): ${m.llmReasoning}\n${hA} on draw (${drawLabel}): ${m.llmReasoning}`;
+		}
+		return {
+			display,
+			tooltip,
+			cardsA: pA?.cards,
+			cardsB: pB?.cards,
+			handleA: hA,
+			handleB: hB,
+		};
 	}
 
 	// Legacy fallback: single-char result
@@ -394,8 +472,9 @@ function wrapHtml(round: { id: number; phase: string }, body: string): string {
 
   /* Matrix */
   .matrix-wrap { overflow-x: auto; margin: 1rem 0; }
-  table.matrix { border-collapse: collapse; font-size: 0.75rem; }
-  .matrix th, .matrix td { padding: 0.25rem 0.4rem; border: 1px solid var(--border); text-align: center; min-width: 2rem; }
+  table.matrix { border-collapse: collapse; font-size: 0.75rem; width: max-content; }
+  .matrix th, .matrix td { padding: 0.25rem 0.4rem; border: 1px solid var(--border); text-align: center; min-width: 2rem; white-space: nowrap; }
+  @media (max-width: 600px) { .matrix td { padding: 0.5rem; min-width: 2.5rem; } }
   .matrix thead th { position: sticky; top: 0; background: var(--bg); writing-mode: vertical-lr; text-orientation: mixed; transform: rotate(180deg); height: 6rem; color: var(--dim); font-weight: 500; }
   .matrix .matrix-row { position: sticky; left: 0; background: var(--bg); text-align: right; padding-right: 0.5rem; color: var(--dim); font-weight: 500; white-space: nowrap; }
   .res-w { background: #1a3a2a; color: var(--green); font-weight: 700; }
