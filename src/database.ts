@@ -399,11 +399,31 @@ export function isJudge(db: Database.Database, did: string): boolean {
 
 // --- Winner ban operations ---
 
+/** Basic lands are never winner-banned — they're format infrastructure. */
+const BASIC_LAND_NAMES = new Set([
+	"Plains",
+	"Island",
+	"Swamp",
+	"Mountain",
+	"Forest",
+	"Snow-Covered Plains",
+	"Snow-Covered Island",
+	"Snow-Covered Swamp",
+	"Snow-Covered Mountain",
+	"Snow-Covered Forest",
+	"Wastes",
+]);
+
+export function isBasicLand(cardName: string): boolean {
+	return BASIC_LAND_NAMES.has(cardName);
+}
+
 export function addWinnerBan(
 	db: Database.Database,
 	cardName: string,
 	roundId: number,
 ): void {
+	if (isBasicLand(cardName)) return; // basic lands are never banned
 	db.prepare(
 		"INSERT OR IGNORE INTO banned_cards (card_name, banned_from_round) VALUES (?, ?)",
 	).run(cardName, roundId);
@@ -444,6 +464,7 @@ export function applyCorrection(
 	requestedBy?: string | null,
 	reason?: string | null,
 ): DbCorrection {
+	// checkpoint WAL after corrections to prevent data loss
 	const apply = db.transaction(() => {
 		const matchup = db
 			.prepare("SELECT outcome, narrative FROM matchups WHERE id = ?")
@@ -474,7 +495,9 @@ export function applyCorrection(
 		return mapCorrection(correction);
 	});
 
-	return apply();
+	const result = apply();
+	db.pragma("wal_checkpoint(PASSIVE)");
+	return result;
 }
 
 export function getCorrections(

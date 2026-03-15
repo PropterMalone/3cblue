@@ -55,8 +55,9 @@
   /* Inline narrative expansion */
   .narr-row td { padding: 0 !important; border: none !important; }
   .narr-inline { background: var(--card); border: 1px solid var(--accent); border-radius: 6px; padding: 0.75rem 1rem; margin: 0.25rem 0; font-size: 0.85rem; line-height: 1.5; }
-  .narr-inline .narr-close { float: right; cursor: pointer; color: var(--dim); font-size: 1.1rem; padding: 0 0.3rem; }
+  .narr-inline .narr-close { float: right; cursor: pointer; color: var(--dim); font-size: 1.4rem; padding: 0.2rem 0.5rem; margin: -0.4rem -0.5rem 0 0.5rem; line-height: 1; }
   .narr-inline .narr-close:hover { color: var(--fg); }
+  @media (max-width: 600px) { .narr-inline .narr-close { font-size: 1.6rem; padding: 0.4rem 0.7rem; } }
   .narr-inline .narr-decklist { color: var(--dim); font-size: 0.82rem; margin-bottom: 0.2rem; display: none; }
   .narr-inline .narr-cards { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
   .narr-inline .narr-deck { flex: 1; min-width: 200px; }
@@ -376,7 +377,9 @@
 <li>Pact of Negation <span class="dim">(R2)</span></li>
 <li>Pyrokinesis <span class="dim">(R3)</span></li>
 <li>Strip Mine <span class="dim">(R1)</span></li>
+<li>The Rack <span class="dim">(R4)</span></li>
 <li>Thassa's Oracle <span class="dim">(R2)</span></li>
+<li>Blackmail <span class="dim">(R4)</span></li>
 </ul>
 
 <footer>
@@ -467,8 +470,16 @@
 		narrDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 	});
 
+	// Close on Escape
 	document.addEventListener('keydown', function(e) {
 		if (e.key === 'Escape') closeNarr();
+	});
+
+	// Close on tap/click outside the narrative
+	document.addEventListener('click', function(e) {
+		if (!matrix.querySelector('.narr-row')) return;
+		if (e.target.closest('.narr-inline') || e.target.closest('td[data-narr]')) return;
+		closeNarr();
 	});
 })();
 </script>
