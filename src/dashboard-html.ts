@@ -199,7 +199,8 @@ function getPairResult(
 					: hADrawChar === "L"
 						? `${hB} wins`
 						: "Draw";
-			tooltip = `${hA}: ${cardsA}\n${hB}: ${cardsB}\n\n${hA} on play (${playLabel}): ${m.llmReasoning}\n${hA} on draw (${drawLabel}): ${m.llmReasoning}`;
+			// Single unsplit reasoning: show verdict summary + reasoning once
+			tooltip = `${hA}: ${cardsA}\n${hB}: ${cardsB}\n\n${hA} on play: ${playLabel}\n${hA} on draw: ${drawLabel}\n\n${m.llmReasoning}`;
 		}
 		return {
 			display,
