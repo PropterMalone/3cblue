@@ -34,7 +34,7 @@ Narratives from both agents shown. Pick the correct combined result in the dropd
         <option value="WL">WL (split — each wins on play)</option>
         <option value="DD">DD (draw both)</option>
         <option value="DL">DL (draw + B wins)</option>
-        <option value="LL">LL (B wins both)</option>
+        <option value="LL" selected>LL (B wins both)</option>
         <option value="LW">LW (B win on play, A win on draw)</option>
         <option value="DW">DW (draw on play, A win on draw)</option>
         <option value="LD">LD (B win on play, draw on draw)</option>
@@ -53,7 +53,7 @@ Narratives from both agents shown. Pick the correct combined result in the dropd
         <option value="">--</option>
         <option value="WW">WW (A wins both)</option>
         <option value="WD">WD (A win + draw)</option>
-        <option value="WL">WL (split — each wins on play)</option>
+        <option value="WL" selected>WL (split — each wins on play)</option>
         <option value="DD">DD (draw both)</option>
         <option value="DL">DL (draw + B wins)</option>
         <option value="LL">LL (B wins both)</option>
@@ -73,7 +73,7 @@ Narratives from both agents shown. Pick the correct combined result in the dropd
       <td>Bridge completely shuts down Revoker's combat plan; Chalice can't counter anything costing 2-3 mana.</td>
       <td><select class="verdict" data-pair="nickchk.com|rnasir.bsky.social">
         <option value="">--</option>
-        <option value="WW">WW (A wins both)</option>
+        <option value="WW" selected>WW (A wins both)</option>
         <option value="WD">WD (A win + draw)</option>
         <option value="WL">WL (split — each wins on play)</option>
         <option value="DD">DD (draw both)</option>
@@ -95,7 +95,7 @@ Narratives from both agents shown. Pick the correct combined result in the dropd
       <td>Foundry draws out Force of Vigor; Flute naming Footfalls locks the only win condition. Lone Servo token wins.</td>
       <td><select class="verdict" data-pair="achilleslaststand.bsky.social|brythefryguy.bsky.social">
         <option value="">--</option>
-        <option value="WW">WW (A wins both)</option>
+        <option value="WW" selected>WW (A wins both)</option>
         <option value="WD">WD (A win + draw)</option>
         <option value="WL">WL (split — each wins on play)</option>
         <option value="DD">DD (draw both)</option>
@@ -120,7 +120,7 @@ Narratives from both agents shown. Pick the correct combined result in the dropd
         <option value="WW">WW (A wins both)</option>
         <option value="WD">WD (A win + draw)</option>
         <option value="WL">WL (split — each wins on play)</option>
-        <option value="DD">DD (draw both)</option>
+        <option value="DD" selected>DD (draw both)</option>
         <option value="DL">DL (draw + B wins)</option>
         <option value="LL">LL (B wins both)</option>
         <option value="LW">LW (B win on play, A win on draw)</option>
@@ -142,7 +142,7 @@ Narratives from both agents shown. Pick the correct combined result in the dropd
         <option value="WW">WW (A wins both)</option>
         <option value="WD">WD (A win + draw)</option>
         <option value="WL">WL (split — each wins on play)</option>
-        <option value="DD">DD (draw both)</option>
+        <option value="DD" selected>DD (draw both)</option>
         <option value="DL">DL (draw + B wins)</option>
         <option value="LL">LL (B wins both)</option>
         <option value="LW">LW (B win on play, A win on draw)</option>
@@ -162,7 +162,7 @@ Narratives from both agents shown. Pick the correct combined result in the dropd
       <td><select class="verdict" data-pair="elyv.bsky.social|brythefryguy.bsky.social">
         <option value="">--</option>
         <option value="WW">WW (A wins both)</option>
-        <option value="WD">WD (A win + draw)</option>
+        <option value="WD" selected>WD (A win + draw)</option>
         <option value="WL">WL (split — each wins on play)</option>
         <option value="DD">DD (draw both)</option>
         <option value="DL">DL (draw + B wins)</option>
@@ -183,7 +183,7 @@ Narratives from both agents shown. Pick the correct combined result in the dropd
       <td>FoW stops Trinisphere but Crystalline Giant is too large for Memnite. P1 wins with the 3/3.</td>
       <td><select class="verdict" data-pair="elyv.bsky.social|tomscud.bsky.social">
         <option value="">--</option>
-        <option value="WW">WW (A wins both)</option>
+        <option value="WW" selected>WW (A wins both)</option>
         <option value="WD">WD (A win + draw)</option>
         <option value="WL">WL (split — each wins on play)</option>
         <option value="DD">DD (draw both)</option>
@@ -210,7 +210,7 @@ Narratives from both agents shown. Pick the correct combined result in the dropd
         <option value="WL">WL (split — each wins on play)</option>
         <option value="DD">DD (draw both)</option>
         <option value="DL">DL (draw + B wins)</option>
-        <option value="LL">LL (B wins both)</option>
+        <option value="LL" selected>LL (B wins both)</option>
         <option value="LW">LW (B win on play, A win on draw)</option>
         <option value="DW">DW (draw on play, A win on draw)</option>
         <option value="LD">LD (B win on play, draw on draw)</option>
@@ -232,7 +232,7 @@ Narratives from both agents shown. Pick the correct combined result in the dropd
         <option value="WL">WL (split — each wins on play)</option>
         <option value="DD">DD (draw both)</option>
         <option value="DL">DL (draw + B wins)</option>
-        <option value="LL">LL (B wins both)</option>
+        <option value="LL" selected>LL (B wins both)</option>
         <option value="LW">LW (B win on play, A win on draw)</option>
         <option value="DW">DW (draw on play, A win on draw)</option>
         <option value="LD">LD (B win on play, draw on draw)</option>
@@ -902,7 +902,7 @@ Narratives from both agents shown. Pick the correct combined result in the dropd
 <br><button onclick="exportResults()">Export Results (JSON)</button>
 <pre id="output"></pre>
 <script>
-function exportResults() {
+function exportResults() { 
   const results = {};
   document.querySelectorAll('select.verdict').forEach(s => {
     if (s.value) results[s.dataset.pair] = s.value;
