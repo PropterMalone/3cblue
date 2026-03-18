@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html><head><meta charset=utf-8><title>R5 Disagreements — Human Review</title>
+<style>
+body { font-family: system-ui; max-width: 100%; margin: 1rem; font-size: 13px; }
+table { border-collapse: collapse; width: 100%; }
+th, td { border: 1px solid #ccc; padding: 4px 8px; text-align: left; vertical-align: top; }
+th { background: #f5f5f5; position: sticky; top: 0; }
+em { color: #666; font-size: 0.9em; }
+.agree { background: #e8f5e9; }
+.disagree { background: #ffebee; font-weight: bold; }
+select { width: 100%; }
+h1 { font-size: 1.3em; }
+p { color: #666; }
+</style></head>
+<body>
+<h1>R5 Disagreements — 40 matchups need human review</h1>
+<p>Red cells = agents disagree on that direction. Green = agree. A's perspective: W=A wins, L=B wins, D=draw.<br>
+Narratives from both agents shown. Pick the correct combined result in the dropdown.</p>
+<table>
+<tr><th>Deck A</th><th>Deck B</th><th>On Play</th><th>On Draw</th><th>A-agent play narr</th><th>A-agent draw narr</th><th>B-agent play narr</th><th>B-agent draw narr</th><th>Your Call</th></tr>
+<tr>
+      <td><strong>@nickchk.com</strong><br><em>Mishra's Workshop / Ensnaring Bridge / Scalding Tongs</em></td>
+      <td><strong>@brythefryguy.bsky.social</strong><br><em>City of Traitors / Disruptor Flute / Retrofitter Foundry</em></td>
+      <td class="disagree">A: W<br>B: L</td>
+      <td class="agree">A: L<br>B: L</td>
+      <td>Bridge locks out all Foundry tokens. Disruptor Flute arrives too late to stop Tongs, and can't disable its triggered ability.</td>
+      <td>Disruptor Flute taxes Tongs by {3}, leaving P0 with Bridge but no clock. Foundry Servos slip under Bridge at power 1.</td>
+      <td>Flute names Bridge, taxing it to {6} — uncastable off Workshop. Foundry tokens attack freely and outrace Tongs' 1/turn ping.</td>
+      <td>Flash Flute names Tongs (uncastable at {5}). Opponent holds Tongs in hand; Bridge allows 1/1 tokens through.</td>
+      <td><select class="verdict" data-pair="nickchk.com|brythefryguy.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@nickchk.com</strong><br><em>Mishra's Workshop / Ensnaring Bridge / Scalding Tongs</em></td>
+      <td><strong>@ryanstephens.bsky.social</strong><br><em>Snow-Covered Island / Daze / Slither Blade</em></td>
+      <td class="disagree">A: D<br>B: W</td>
+      <td class="agree">A: L<br>B: L</td>
+      <td>Daze counters Tongs (Workshop can't pay the tax). Bridge locks Slither Blade. Neither side has a win condition.</td>
+      <td>Daze counters Bridge. Slither Blade races Tongs — attacking one turn sooner is enough to win.</td>
+      <td>Daze counters Ensnaring Bridge (opp tapped out from Workshop). Both have 1/turn clocks but Slither Blade started attacking first.</td>
+      <td>Bridge resolves before we have lands to Daze. Blade can't attack through Bridge; Tongs pings us to death.</td>
+      <td><select class="verdict" data-pair="nickchk.com|ryanstephens.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@nickchk.com</strong><br><em>Mishra's Workshop / Ensnaring Bridge / Scalding Tongs</em></td>
+      <td><strong>@rnasir.bsky.social</strong><br><em>City of Traitors / Chalice of the Void / Phyrexian Revoker</em></td>
+      <td class="disagree">A: D<br>B: W</td>
+      <td class="disagree">A: L<br>B: W</td>
+      <td>Revoker names Workshop, stranding Tongs. But Revoker can't attack through Bridge either — mutual lock.</td>
+      <td>Revoker names Workshop before P0 can use it. No Bridge means Revoker attacks freely for a 10-turn kill.</td>
+      <td>Ensnaring Bridge locks out Revoker (power 2 > cards in hand) while Scalding Tongs pings for lethal over 20 turns.</td>
+      <td>Bridge completely shuts down Revoker's combat plan; Chalice can't counter anything costing 2-3 mana.</td>
+      <td><select class="verdict" data-pair="nickchk.com|rnasir.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@achilleslaststand.bsky.social</strong><br><em>Chancellor of the Tangle / Crashing Footfalls / Force of Vigor</em></td>
+      <td><strong>@brythefryguy.bsky.social</strong><br><em>City of Traitors / Disruptor Flute / Retrofitter Foundry</em></td>
+      <td class="disagree">A: W<br>B: L</td>
+      <td class="disagree">A: W<br>B: L</td>
+      <td>FoV destroys Disruptor Flute, freeing Footfalls to resolve. Rhinos crush the slow Foundry token plan.</td>
+      <td>FoV answers Disruptor Flute immediately. Retrofitter Foundry's token factory is far too slow against 4/4 tramplers.</td>
+      <td>P0 baits Force of Vigor with Foundry, then Flute locks Crashing Footfalls (costs {3} off suspend, no mana to pay). Servo wins in 20.</td>
+      <td>Foundry draws out Force of Vigor; Flute naming Footfalls locks the only win condition. Lone Servo token wins.</td>
+      <td><select class="verdict" data-pair="achilleslaststand.bsky.social|brythefryguy.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@achilleslaststand.bsky.social</strong><br><em>Chancellor of the Tangle / Crashing Footfalls / Force of Vigor</em></td>
+      <td><strong>@materialsdan.bsky.social</strong><br><em>Mishra's Workshop / Mishra's Workshop / Wurmcoil Engine</em></td>
+      <td class="disagree">A: L<br>B: W</td>
+      <td class="disagree">A: L<br>B: W</td>
+      <td>T1 Wurmcoil Engine kills P0 by T5 even through FoV (death trigger makes two 3/3s). Rhinos arrive too late.</td>
+      <td>Wurmcoil's T1 6/6 deathtouch lifelink is a 4-turn clock that outraces Rhinos by a full turn.</td>
+      <td>Force of Vigor destroys Wurmcoil for free (exiling Chancellor). 3/3 tokens trade with Rhinos on T5, last Rhino finishes P0.</td>
+      <td>Same FoV line works regardless of play/draw. Rhinos arrive T5 and overpower the death tokens.</td>
+      <td><select class="verdict" data-pair="achilleslaststand.bsky.social|materialsdan.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@achilleslaststand.bsky.social</strong><br><em>Chancellor of the Tangle / Crashing Footfalls / Force of Vigor</em></td>
+      <td><strong>@tomscud.bsky.social</strong><br><em>Force of Will / Memnite / Bubbling Beebles</em></td>
+      <td class="disagree">A: D<br>B: L</td>
+      <td class="disagree">A: D<br>B: L</td>
+      <td>FoW counters Footfalls, then FoV destroys Memnite. Board is completely empty with no resources remaining for either side.</td>
+      <td>Mutual destruction: FoW stops Rhinos, FoV kills the only creature. Neither player has remaining win conditions.</td>
+      <td>FoW counters Crashing Footfalls when it comes off suspend; Force of Vigor has no targets. Memnite wins unopposed.</td>
+      <td>FoW counters Footfalls off suspend; P1 has no other way to deploy threats. Memnite wins in 20 turns.</td>
+      <td><select class="verdict" data-pair="achilleslaststand.bsky.social|tomscud.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@elyv.bsky.social</strong><br><em>Mishra's Workshop / Trinisphere / Crystalline Giant</em></td>
+      <td><strong>@brythefryguy.bsky.social</strong><br><em>City of Traitors / Disruptor Flute / Retrofitter Foundry</em></td>
+      <td class="disagree">A: W<br>B: D</td>
+      <td class="disagree">A: W<br>B: L</td>
+      <td>Trinisphere locks City of Traitors at 2 mana — neither Flute nor Foundry can be cast. Giant wins uncontested.</td>
+      <td>Flute names Trinisphere but Giant still resolves; Foundry tokens can't race or permanently stall a 3/3 with growing keywords.</td>
+      <td>Flute names Trinisphere (uncastable at {6}). Foundry Construct outclasses the lone Crystalline Giant.</td>
+      <td>P0 flashes Flute naming Giant (locked at {6}), but Trinisphere locks Foundry at {3} with only {2} available. Stalemate.</td>
+      <td><select class="verdict" data-pair="elyv.bsky.social|brythefryguy.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@elyv.bsky.social</strong><br><em>Mishra's Workshop / Trinisphere / Crystalline Giant</em></td>
+      <td><strong>@tomscud.bsky.social</strong><br><em>Force of Will / Memnite / Bubbling Beebles</em></td>
+      <td class="disagree">A: D<br>B: W</td>
+      <td class="disagree">A: L<br>B: W</td>
+      <td>Opp Forces Giant (not Trinisphere) for optimal draw; Trinisphere locks Memnite at 3 mana, neither side has threats.</td>
+      <td>Memnite deploys free before Trinisphere; Force of Will counters Giant, leaving Memnite as the only clock.</td>
+      <td>P0 must FoW Trinisphere (or lose all interaction), but Crystalline Giant then comes down as a 3/3 that outclasses Memnite.</td>
+      <td>FoW stops Trinisphere but Crystalline Giant is too large for Memnite. P1 wins with the 3/3.</td>
+      <td><select class="verdict" data-pair="elyv.bsky.social|tomscud.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@elyv.bsky.social</strong><br><em>Mishra's Workshop / Trinisphere / Crystalline Giant</em></td>
+      <td><strong>@skis-n-reads.bsky.social</strong><br><em>Lion's Eye Diamond / Leyline of Anticipation / Shadowgrange Archfiend</em></td>
+      <td class="disagree">A: L<br>B: W</td>
+      <td class="agree">A: L<br>B: L</td>
+      <td>Leyline gives LED flash — Archfiend deploys at instant speed before Trinisphere resolves. 8/4 overwhelms Giant.</td>
+      <td>Leyline + LED enables T1 instant-speed Archfiend regardless of play order; Giant can't contest 8/4.</td>
+      <td>T1 Archfiend 8/4 deploys before Trinisphere. Three attacks kill before Crystalline Giant can race — Giant's 3/3 body can't trade or block profitably.</td>
+      <td>T1 Trinisphere taxes LED from {0} to {3}, completely locking out the combo. Crystalline Giant beats down unopposed.</td>
+      <td><select class="verdict" data-pair="elyv.bsky.social|skis-n-reads.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@brythefryguy.bsky.social</strong><br><em>City of Traitors / Disruptor Flute / Retrofitter Foundry</em></td>
+      <td><strong>@proptermalone.bsky.social</strong><br><em>Wasteland / Sand Silos / Jace, Wielder of Mysteries</em></td>
+      <td class="disagree">A: L<br>B: W</td>
+      <td class="disagree">A: L<br>B: W</td>
+      <td>Sand Silos builds to Jace by T6. P0's token engine is too slow even with Flute protecting City from Wasteland.</td>
+      <td>Jace combo outraces Foundry tokens. Wasteland eliminates City; P0 can't establish a clock.</td>
+      <td>Disruptor Flute names Jace, preventing its activated abilities. Foundry's lone Servo attacks for 1/turn to eventually win.</td>
+      <td>T1 Flute naming Jace shuts off loyalty abilities. P0 has no alternate win condition.</td>
+      <td><select class="verdict" data-pair="brythefryguy.bsky.social|proptermalone.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@brythefryguy.bsky.social</strong><br><em>City of Traitors / Disruptor Flute / Retrofitter Foundry</em></td>
+      <td><strong>@rnasir.bsky.social</strong><br><em>City of Traitors / Chalice of the Void / Phyrexian Revoker</em></td>
+      <td class="agree">A: D<br>B: D</td>
+      <td class="disagree">A: L<br>B: D</td>
+      <td>Flute locks Revoker at {5}. Opponent deploys Chalice on 1, countering Foundry. Complete stalemate.</td>
+      <td>T1 Revoker names Foundry before P0 can act. Foundry is permanently shut off; Revoker beats down unopposed.</td>
+      <td>Chalice on 1 stops Foundry; Disruptor Flute taxes Revoker to 5 mana. Neither side deploys a threat.</td>
+      <td>Flute names Revoker making it uncastable; Chalice on 1 counters Foundry. Complete stalemate.</td>
+      <td><select class="verdict" data-pair="brythefryguy.bsky.social|rnasir.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@brythefryguy.bsky.social</strong><br><em>City of Traitors / Disruptor Flute / Retrofitter Foundry</em></td>
+      <td><strong>@azax.bsky.social</strong><br><em>City of Traitors / Mox Pearl / White Plume Adventurer</em></td>
+      <td class="disagree">A: W<br>B: L</td>
+      <td class="disagree">A: W<br>B: L</td>
+      <td>Flute names WPA, taxing to {5}{W} — uncastable with City + Mox. P0 wins with tokens.</td>
+      <td>Construct on T4 blocks and kills WPA (4/4 vs 3/3). Dungeon value not enough to matter. P0 wins.</td>
+      <td>Disruptor Flute has no targets on resolved WPA; Retrofitter Foundry's token factory is far too slow to race a T1 5/5.</td>
+      <td>WPA outraces the slow Foundry token engine; Disruptor Flute can't stop an already-resolved creature.</td>
+      <td><select class="verdict" data-pair="brythefryguy.bsky.social|azax.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@brythefryguy.bsky.social</strong><br><em>City of Traitors / Disruptor Flute / Retrofitter Foundry</em></td>
+      <td><strong>@skis-n-reads.bsky.social</strong><br><em>Lion's Eye Diamond / Leyline of Anticipation / Shadowgrange Archfiend</em></td>
+      <td class="disagree">A: W<br>B: L</td>
+      <td class="disagree">A: D<br>B: L</td>
+      <td>Flute taxes Archfiend Madness to {5}{B} — LED's 3 mana insufficient. Opponent left with no threats.</td>
+      <td>P0 chump-blocks Archfiend with one Servo per turn indefinitely. No Memnite means no chip damage. Stalemate.</td>
+      <td>T1 8/4 Archfiend races easily. Retrofitter Foundry token production is far too slow to create meaningful blockers before P0's 3-turn kill.</td>
+      <td>P0 flashes in LED and combos in response to Disruptor Flute, resolving Archfiend before Flute can name anything. 3-turn kill follows.</td>
+      <td><select class="verdict" data-pair="brythefryguy.bsky.social|skis-n-reads.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@brythefryguy.bsky.social</strong><br><em>City of Traitors / Disruptor Flute / Retrofitter Foundry</em></td>
+      <td><strong>@bannedhat.bsky.social</strong><br><em>Ocelot Pride / Alpine Moon / Inspiring Vantage</em></td>
+      <td class="disagree">A: W<br>B: D</td>
+      <td class="agree">A: L<br>B: L</td>
+      <td>Flute locks Alpine Moon. Construct kills Ocelot T5, stopping token generation. P0 stabilizes at ~10 life.</td>
+      <td>Alpine Moon neuters City to 1 mana. P0 can't activate Foundry or cast Flute. Ocelot snowball wins.</td>
+      <td>Moon neuters City to 1 mana; Foundry deploys but can't activate (needs 2 mana). Ocelot snowballs uncontested.</td>
+      <td>Flute taxes Ocelot by {3}; Moon neuters City to 1 mana. Neither side can deploy or activate anything. Stalemate.</td>
+      <td><select class="verdict" data-pair="brythefryguy.bsky.social|bannedhat.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@ryanstephens.bsky.social</strong><br><em>Snow-Covered Island / Daze / Slither Blade</em></td>
+      <td><strong>@materialsdan.bsky.social</strong><br><em>Mishra's Workshop / Mishra's Workshop / Wurmcoil Engine</em></td>
+      <td class="agree">A: W<br>B: W</td>
+      <td class="disagree">A: L<br>B: W</td>
+      <td>Daze counters Wurmcoil Engine (opp tapped out both Workshops). No remaining threats; Blade wins uncontested.</td>
+      <td>Wurmcoil resolves before we have lands. 6/6 deathtouch lifelink is unraceable with a 1/turn clock.</td>
+      <td>Daze counters Wurmcoil — Workshop mana can't pay the {1} tax (not casting an artifact). Slither Blade wins uncontested.</td>
+      <td>Same Daze lock works on the draw. Workshop's artifact-only mana restriction is the fatal weakness.</td>
+      <td><select class="verdict" data-pair="ryanstephens.bsky.social|materialsdan.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@ryanstephens.bsky.social</strong><br><em>Snow-Covered Island / Daze / Slither Blade</em></td>
+      <td><strong>@rnasir.bsky.social</strong><br><em>City of Traitors / Chalice of the Void / Phyrexian Revoker</em></td>
+      <td class="disagree">A: W<br>B: D</td>
+      <td class="agree">A: D<br>B: D</td>
+      <td>Slither Blade resolves before Chalice. Daze counters Revoker (opp tapped out). No threats remain; Blade wins.</td>
+      <td>Chalice on 1 counters Slither Blade. Daze counters Revoker. Neither side has threats — permanent stalemate.</td>
+      <td>Revoker 2/1 and Slither Blade 1/2 trade in combat; neither side has a remaining threat after the exchange.</td>
+      <td>Daze delays Revoker one turn, but Slither Blade still trades with it in combat. Stalemate after trade.</td>
+      <td><select class="verdict" data-pair="ryanstephens.bsky.social|rnasir.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@ryanstephens.bsky.social</strong><br><em>Snow-Covered Island / Daze / Slither Blade</em></td>
+      <td><strong>@mutantmell.net</strong><br><em>Mishra's Workshop / Leyline of the Guildpact / Scion of Draco</em></td>
+      <td class="disagree">A: L<br>B: W</td>
+      <td class="agree">A: L<br>B: L</td>
+      <td>Scion costs only {2} from Workshop, leaving {1} to pay for Daze. 4/4 flying lifelink hexproof is unraceable and untouchable.</td>
+      <td>Leyline + Workshop into Scion for {2} with mana to spare. Full keyword suite makes racing impossible.</td>
+      <td>Scion resolves before opp has an Island to Daze. 4/4 lifelink flier outraces 1/2 unblockable with ease.</td>
+      <td>Daze counters Scion — Workshop's artifact-only mana can't pay the {1} tax. Slither Blade wins uncontested.</td>
+      <td><select class="verdict" data-pair="ryanstephens.bsky.social|mutantmell.net">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@proptermalone.bsky.social</strong><br><em>Wasteland / Sand Silos / Jace, Wielder of Mysteries</em></td>
+      <td><strong>@tvanl.bsky.social</strong><br><em>Peat Bog / Deep-Cavern Bat / March from the Black Gate</em></td>
+      <td class="agree">A: W<br>B: W</td>
+      <td class="disagree">A: L<br>B: W</td>
+      <td>P0 sacrifices Wasteland to destroy Peat Bog before it untaps, stranding Bat. Jace wins T5.</td>
+      <td>Bat exiles Jace T2 before P0 can respond. No removal for Bat means Jace never returns.</td>
+      <td>Wasteland destroys Peat Bog T1, stranding P0's entire hand. Jace wins off empty library around T6.</td>
+      <td>Wasteland destroys Peat Bog, Silos accumulates to cast Jace T5 for the empty-library win.</td>
+      <td><select class="verdict" data-pair="proptermalone.bsky.social|tvanl.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@proptermalone.bsky.social</strong><br><em>Wasteland / Sand Silos / Jace, Wielder of Mysteries</em></td>
+      <td><strong>@azax.bsky.social</strong><br><em>City of Traitors / Mox Pearl / White Plume Adventurer</em></td>
+      <td class="disagree">A: W<br>B: L</td>
+      <td class="agree">A: L<br>B: L</td>
+      <td>Jace wins T4 at 10 life, just before Throne of the Dead Three would deal the killing blow on P1's T4.</td>
+      <td>Undercity reaches Throne on P1's T4 upkeep, dealing 10 to P0 at exactly 10 life. One turn too slow.</td>
+      <td>WPA kills on T5 well before Sand Silos accumulates enough counters for Jace. Wasteland can't remove a resolved creature.</td>
+      <td>Wasteland can't prevent WPA from resolving; Sand Silos/Jace line needs T6+ while WPA kills on T5.</td>
+      <td><select class="verdict" data-pair="proptermalone.bsky.social|azax.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@proptermalone.bsky.social</strong><br><em>Wasteland / Sand Silos / Jace, Wielder of Mysteries</em></td>
+      <td><strong>@mutantmell.net</strong><br><em>Mishra's Workshop / Leyline of the Guildpact / Scion of Draco</em></td>
+      <td class="agree">A: W<br>B: W</td>
+      <td class="disagree">A: W<br>B: L</td>
+      <td>Scion 4/4 keyword soup attacks twice for 8 before Jace wins T4 at 12 life.</td>
+      <td>Three Scion attacks deal 12. Jace wins T4 at 8 life despite the lifelink lifegain.</td>
+      <td>Sand Silos needs 4 upkeep counters, delaying Jace to opp T6. Scion's 5-turn flying clock kills first on T6.</td>
+      <td>Sand Silos reaches 4 counters by T5 upkeep, enabling Jace on Opp T6. Scion's clock is one turn too slow.</td>
+      <td><select class="verdict" data-pair="proptermalone.bsky.social|mutantmell.net">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@proptermalone.bsky.social</strong><br><em>Wasteland / Sand Silos / Jace, Wielder of Mysteries</em></td>
+      <td><strong>@meatballwalrus.bsky.social</strong><br><em>Lion's Eye Diamond / Shadowgrange Archfiend / Memnite</em></td>
+      <td class="disagree">A: W<br>B: L</td>
+      <td class="agree">A: L<br>B: L</td>
+      <td>Archfiend+Memnite deal 18 over two attacks. P0 barely survives at 2 life, Jace wins T4.</td>
+      <td>Three attacks of 9 deal 27 by P1's T4. P0 dead at -7 before casting Jace.</td>
+      <td>T1 Archfiend kills by T4, well before Sand Silos accumulates enough counters to cast Jace.</td>
+      <td>No interaction from P1. Archfiend's 3-turn clock finishes before Jace is remotely castable.</td>
+      <td><select class="verdict" data-pair="proptermalone.bsky.social|meatballwalrus.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@proptermalone.bsky.social</strong><br><em>Wasteland / Sand Silos / Jace, Wielder of Mysteries</em></td>
+      <td><strong>@skis-n-reads.bsky.social</strong><br><em>Lion's Eye Diamond / Leyline of Anticipation / Shadowgrange Archfiend</em></td>
+      <td class="disagree">A: W<br>B: L</td>
+      <td class="agree">A: L<br>B: L</td>
+      <td>Solo Archfiend deals 16 over two attacks. P0 survives at 4 life, Jace wins T4.</td>
+      <td>Three Archfiend attacks deal 24 by P1's T4. P0 dead before casting Jace.</td>
+      <td>T1 8/4 Archfiend kills in 3 attacks, far before Sand Silos accumulates enough counters to cast Jace on T5+.</td>
+      <td>Wasteland has no targets (P0 plays no lands). Archfiend's 3-turn kill easily outraces the slow Jace win condition.</td>
+      <td><select class="verdict" data-pair="proptermalone.bsky.social|skis-n-reads.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@jslandau.cc</strong><br><em>Aboleth Spawn / Crystal Vein / Mox Sapphire</em></td>
+      <td><strong>@tvanl.bsky.social</strong><br><em>Peat Bog / Deep-Cavern Bat / March from the Black Gate</em></td>
+      <td class="disagree">A: W<br>B: L</td>
+      <td class="disagree">A: W<br>B: L</td>
+      <td>Probing Telepathy copies Bat's ETB to exile March; Aboleth's 2/turn outraces Bat's 1/turn despite flying and lifelink.</td>
+      <td>Same Probing Telepathy interaction strips March; P0's damage lead from attacking first decides the race.</td>
+      <td>Bat trades with Aboleth Spawn in combat, March returns. Army grows unopposed to deal 20 by T8.</td>
+      <td>Bat and Aboleth trade in combat. March returns, Army grows to lethal while P1 has no remaining threats.</td>
+      <td><select class="verdict" data-pair="jslandau.cc|tvanl.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@jslandau.cc</strong><br><em>Aboleth Spawn / Crystal Vein / Mox Sapphire</em></td>
+      <td><strong>@egirlstravinsky.bsky.social</strong><br><em>Inkmoth Nexus / Mox Ruby / Abrade</em></td>
+      <td class="disagree">A: W<br>B: L</td>
+      <td class="agree">A: L<br>B: L</td>
+      <td>Ward {2} blocks Abrade; identical 10-attack clocks but P0 swings first on the play for the win.</td>
+      <td>Symmetric 10-turn clocks; on the draw P1's Inkmoth poisons P0 to death one half-turn before Aboleth's lethal.</td>
+      <td>Aboleth Spawn can't block Inkmoth's flying and ward prices out Abrade. Poison clock (10 turns) outraces 2/3 ground clock.</td>
+      <td>Poison clock just barely outraces Aboleth Spawn's damage. P0 wins at 2 life on turn 10.</td>
+      <td><select class="verdict" data-pair="jslandau.cc|egirlstravinsky.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@jslandau.cc</strong><br><em>Aboleth Spawn / Crystal Vein / Mox Sapphire</em></td>
+      <td><strong>@azax.bsky.social</strong><br><em>City of Traitors / Mox Pearl / White Plume Adventurer</em></td>
+      <td class="disagree">A: L<br>B: W</td>
+      <td class="agree">A: L<br>B: L</td>
+      <td>White Plume Adventurer (3/3 + dungeon growth) outclasses Aboleth; initiative goes to P1 despite Probing Telepathy copy.</td>
+      <td>WPA's 3/3 body beats Aboleth's 2/3 in combat; Forge counters make it 5/5 by T3.</td>
+      <td>WPA at 5/5 outclasses Aboleth Spawn (2/3); Probing Telepathy missed WPA's ETB since P0 was on the play.</td>
+      <td>Aboleth Spawn copies WPA's initiative trigger, stealing dungeon progress and Forge counters. 4/5 Aboleth outfights 3/3 WPA.</td>
+      <td><select class="verdict" data-pair="jslandau.cc|azax.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@jslandau.cc</strong><br><em>Aboleth Spawn / Crystal Vein / Mox Sapphire</em></td>
+      <td><strong>@jechtmurray.bsky.social</strong><br><em>Mountain / Lightning Bolt / Greater Gargadon</em></td>
+      <td class="disagree">A: W<br>B: L</td>
+      <td class="agree">A: L<br>B: L</td>
+      <td>Ward blocks Bolt from targeting Aboleth; 2/3 kills P1 in 10 turns, far ahead of Gargadon's T12 arrival.</td>
+      <td>Gargadon arrives with haste at P1's T11 just in time; 9/7 blocks lethal attack then kills P0 from 2 life.</td>
+      <td>Ward protects Spawn from Bolt, but Gargadon arrives T11 just in time to block and then attack for lethal.</td>
+      <td>P0 forgoes Bolt to suspend Gargadon earlier. Gargadon arrives T10, blocks Spawn, then attacks for the win.</td>
+      <td><select class="verdict" data-pair="jslandau.cc|jechtmurray.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@jslandau.cc</strong><br><em>Aboleth Spawn / Crystal Vein / Mox Sapphire</em></td>
+      <td><strong>@nicholaslynn.bsky.social</strong><br><em>Mountain / Burning Inquiry / Blazing Rootwalla</em></td>
+      <td class="disagree">A: W<br>B: D</td>
+      <td class="agree">A: L<br>B: L</td>
+      <td>P0 empties hand T1 so Burning Inquiry whiffs; Aboleth (2/3) easily outraces Blazing Rootwalla (1/1).</td>
+      <td>Burning Inquiry strips P0's entire hand before they can play; Rootwalla beats down unopposed.</td>
+      <td>T1 Inquiry strips Mox+Vein+Aboleth before opponent deploys any mana. Rootwalla wins in 7.</td>
+      <td>Aboleth Spawn deployed T1 via Vein+Mox. Inquiry clears nothing; Rootwalla and Aboleth trade in combat. Stalemate.</td>
+      <td><select class="verdict" data-pair="jslandau.cc|nicholaslynn.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@jslandau.cc</strong><br><em>Aboleth Spawn / Crystal Vein / Mox Sapphire</em></td>
+      <td><strong>@bannedhat.bsky.social</strong><br><em>Ocelot Pride / Alpine Moon / Inspiring Vantage</em></td>
+      <td class="agree">A: W<br>B: W</td>
+      <td class="disagree">A: W<br>B: L</td>
+      <td>Aboleth's 2/3 body kills Ocelot Pride in any combat (survives first strike); P0 attacks freely after the trade.</td>
+      <td>Ocelot's 1/1 first strike can't survive combat with 2/3 Aboleth; P0 controls all combat trades.</td>
+      <td>Moon neuters Crystal Vein to 1 mana; with Mox that's only 2 — Aboleth Spawn (3 mana) is permanently stranded.</td>
+      <td>Aboleth Spawn (2/3) blocks and kills Ocelot in combat every time — survives first strike, retaliates for lethal.</td>
+      <td><select class="verdict" data-pair="jslandau.cc|bannedhat.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@tvanl.bsky.social</strong><br><em>Peat Bog / Deep-Cavern Bat / March from the Black Gate</em></td>
+      <td><strong>@maxmilstein.bsky.social</strong><br><em>Allosaurus Shepherd / Vine Dryad / Chancellor of the Tangle</em></td>
+      <td class="agree">A: W<br>B: W</td>
+      <td class="disagree">A: W<br>B: L</td>
+      <td>After Army trades with Shepherd, Bat's flying is unblockable. Lifelink negates Dryad's damage for a slow but sure win.</td>
+      <td>Army grows to kill Dryad, Bat flies over. After P1's creatures die, P0's threats are uncontested.</td>
+      <td>P0 deploys before Peat Bog untaps; Bat and Army trade away, leaving Dryad to attack unopposed.</td>
+      <td>Bat's flying is unblockable by P0's ground creatures; lifelink offsets Dryad's damage, and Bat clocks P0 out.</td>
+      <td><select class="verdict" data-pair="tvanl.bsky.social|maxmilstein.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@tvanl.bsky.social</strong><br><em>Peat Bog / Deep-Cavern Bat / March from the Black Gate</em></td>
+      <td><strong>@bannedhat.bsky.social</strong><br><em>Ocelot Pride / Alpine Moon / Inspiring Vantage</em></td>
+      <td class="disagree">A: W<br>B: L</td>
+      <td class="agree">A: L<br>B: L</td>
+      <td>Bat exiles Alpine Moon, preserving Peat Bog. Army grows to kill Ocelot, stopping the token snowball. Bat flies to victory.</td>
+      <td>Alpine Moon neuters Peat Bog to 1 mana before P0 can act. Both spells uncastable. Ocelot snowballs.</td>
+      <td>Moon neuters Peat Bog to 1 mana; Bat and March both cost 2 and are permanently stranded. Ocelot wins.</td>
+      <td>Peat Bog enters tapped; Moon neuters it before T2. Opponent can never deploy threats. Ocelot snowballs.</td>
+      <td><select class="verdict" data-pair="tvanl.bsky.social|bannedhat.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@rnasir.bsky.social</strong><br><em>City of Traitors / Chalice of the Void / Phyrexian Revoker</em></td>
+      <td><strong>@azax.bsky.social</strong><br><em>City of Traitors / Mox Pearl / White Plume Adventurer</em></td>
+      <td class="disagree">A: W<br>B: L</td>
+      <td class="agree">A: L<br>B: L</td>
+      <td>Chalice on 0 counters Mox Pearl, cutting off white mana. WPA is stranded in hand.</td>
+      <td>T1 WPA 3/3 with initiative deploys before Chalice. Revoker 2/1 is outclassed.</td>
+      <td>Chalice and Revoker have no meaningful targets against resolved WPA; 5/5 outraces 2/1 Revoker easily.</td>
+      <td>Chalice on any value can't counter 3-mana WPA; Revoker finds no activated abilities to shut off.</td>
+      <td><select class="verdict" data-pair="rnasir.bsky.social|azax.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@rnasir.bsky.social</strong><br><em>City of Traitors / Chalice of the Void / Phyrexian Revoker</em></td>
+      <td><strong>@jechtmurray.bsky.social</strong><br><em>Mountain / Lightning Bolt / Greater Gargadon</em></td>
+      <td class="disagree">A: W<br>B: L</td>
+      <td class="disagree">A: W<br>B: L</td>
+      <td>Chalice on 1 stops Bolt. Revoker's 10-turn clock finishes exactly before Gargadon can attack off suspend.</td>
+      <td>Even taking 3 from Bolt, Revoker's clock finishes on T11 before Gargadon gets to swing.</td>
+      <td>Bolt resolves before Chalice. Suspend bypasses Chalice. Gargadon outraces the 2/1 Revoker and blocks it to survive.</td>
+      <td>Chalice counters Bolt but can't stop suspend. Gargadon arrives T10, blocks Revoker, and outraces the 2/1 clock.</td>
+      <td><select class="verdict" data-pair="rnasir.bsky.social|jechtmurray.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@egirlstravinsky.bsky.social</strong><br><em>Inkmoth Nexus / Mox Ruby / Abrade</em></td>
+      <td><strong>@nicholaslynn.bsky.social</strong><br><em>Mountain / Burning Inquiry / Blazing Rootwalla</em></td>
+      <td class="disagree">A: L<br>B: D</td>
+      <td class="agree">A: L<br>B: L</td>
+      <td>Burning Inquiry strips P0's hand. Blazing Rootwalla pumps to 3/1 and outraces Inkmoth's poison clock.</td>
+      <td>Burning Inquiry destroys P0's entire hand before anything can be played. Total lockout.</td>
+      <td>T1 Inquiry strips Inkmoth+Mox+Abrade. Rootwalla beats down in 7 turns.</td>
+      <td>Inquiry strips Abrade. Rootwalla and Inkmoth trade in combat — Rootwalla can't block flying, opponent blocks to force draw.</td>
+      <td><select class="verdict" data-pair="egirlstravinsky.bsky.social|nicholaslynn.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@maxmilstein.bsky.social</strong><br><em>Allosaurus Shepherd / Vine Dryad / Chancellor of the Tangle</em></td>
+      <td><strong>@nicholaslynn.bsky.social</strong><br><em>Mountain / Burning Inquiry / Blazing Rootwalla</em></td>
+      <td class="agree">A: W<br>B: W</td>
+      <td class="disagree">A: L<br>B: D</td>
+      <td>P0 deploys before Inquiry; empty hand means nothing to discard. Two creatures outclass Rootwalla.</td>
+      <td>Burning Inquiry strips P0's entire hand before deployment; Rootwalla attacks into an empty board.</td>
+      <td>Opponent flashes in Vine Dryad (exile Chancellor) in response to Inquiry. Rootwalla and Dryad trade in combat — stalemate.</td>
+      <td>Shepherd + Vine Dryad both deployed T1 before Inquiry. Two creatures overwhelm Rootwalla — opponent wins with remaining creature.</td>
+      <td><select class="verdict" data-pair="maxmilstein.bsky.social|nicholaslynn.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@azax.bsky.social</strong><br><em>City of Traitors / Mox Pearl / White Plume Adventurer</em></td>
+      <td><strong>@meatballwalrus.bsky.social</strong><br><em>Lion's Eye Diamond / Shadowgrange Archfiend / Memnite</em></td>
+      <td class="agree">A: L<br>B: L</td>
+      <td class="disagree">A: W<br>B: L</td>
+      <td>LED into Archfiend Madness forces WPA sacrifice; 8/4 + Memnite kills P0 in 3 turns.</td>
+      <td>Archfiend ETB whiffs on the draw; WPA trades with Archfiend, then Throne's zombie finishes P1 at 7 life.</td>
+      <td>WPA can't survive Archfiend combat. P0 steals initiative and Trap-damages P1 while attacking for 9.</td>
+      <td>Archfiend ETB devours WPA on entry. P1 left with no board and no way to race.</td>
+      <td><select class="verdict" data-pair="azax.bsky.social|meatballwalrus.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@azax.bsky.social</strong><br><em>City of Traitors / Mox Pearl / White Plume Adventurer</em></td>
+      <td><strong>@skis-n-reads.bsky.social</strong><br><em>Lion's Eye Diamond / Leyline of Anticipation / Shadowgrange Archfiend</em></td>
+      <td class="agree">A: L<br>B: L</td>
+      <td class="disagree">A: W<br>B: L</td>
+      <td>LED+Archfiend Madness forces WPA sacrifice; 8/4 kills in 3 attacks, well before Throne.</td>
+      <td>Archfiend ETB whiffs on the draw; WPA trades with Archfiend, then Throne's zombie finishes P1 at 7 life.</td>
+      <td>8/4 Archfiend outraces White Plume Adventurer's 3/3 body. P0 kills T4 while opponent's dungeon value can't close the life gap.</td>
+      <td>Archfiend ETB sacrifices White Plume Adventurer on entry. With no remaining threats, P0's 8/4 kills in 3 uncontested attacks.</td>
+      <td><select class="verdict" data-pair="azax.bsky.social|skis-n-reads.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@azax.bsky.social</strong><br><em>City of Traitors / Mox Pearl / White Plume Adventurer</em></td>
+      <td><strong>@bannedhat.bsky.social</strong><br><em>Ocelot Pride / Alpine Moon / Inspiring Vantage</em></td>
+      <td class="agree">A: W<br>B: W</td>
+      <td class="disagree">A: W<br>B: L</td>
+      <td>Ocelot Pride chumps WPA indefinitely (no trample), but Throne's 4/4 menace zombie breaks through for lethal.</td>
+      <td>Ocelot's chump-and-replace engine stalls WPA, but Throne's menace zombie eventually overwhelms.</td>
+      <td>Moon neuters City to 1 mana; with Mox that's 2 — WPA costs 3 and is stranded. Ocelot snowballs.</td>
+      <td>T1 White Plume Adventurer (3/3) with initiative far outclasses Ocelot. P0 can't race or block.</td>
+      <td><select class="verdict" data-pair="azax.bsky.social|bannedhat.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@tomscud.bsky.social</strong><br><em>Force of Will / Memnite / Bubbling Beebles</em></td>
+      <td><strong>@jechtmurray.bsky.social</strong><br><em>Mountain / Lightning Bolt / Greater Gargadon</em></td>
+      <td class="disagree">A: D<br>B: L</td>
+      <td class="disagree">A: D<br>B: L</td>
+      <td>P0 lets Bolt kill Memnite to save FoW for Greater Gargadon. Both threats neutralized — stalemate.</td>
+      <td>P1 Bolts Memnite; P0 saves FoW to counter Gargadon off suspend. Neither side has a remaining win condition.</td>
+      <td>Memnite's 1/turn clock takes 20 turns. Gargadon arrives T11 and kills in 2-3 attacks, easily winning the race.</td>
+      <td>Memnite is far too slow. Gargadon arrives T10, blocks the 1/1, and finishes opp in three swings.</td>
+      <td><select class="verdict" data-pair="tomscud.bsky.social|jechtmurray.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@mutantmell.net</strong><br><em>Mishra's Workshop / Leyline of the Guildpact / Scion of Draco</em></td>
+      <td><strong>@skis-n-reads.bsky.social</strong><br><em>Lion's Eye Diamond / Leyline of Anticipation / Shadowgrange Archfiend</em></td>
+      <td class="disagree">A: D<br>B: L</td>
+      <td class="disagree">A: D<br>B: W</td>
+      <td>Leyline of Anticipation lets opp flash-sac Scion on demand. Neither player commits first — mutual draw via game-theory stalemate.</td>
+      <td>Flash-enabled Archfiend combo creates a standoff. Both players play for draw rather than risk the losing line.</td>
+      <td>Scion of Draco's first strike kills Archfiend in combat (4 first-strike ≥ 4 toughness), and flying means Archfiend can't block. Scion kills P0 in 3 turns.</td>
+      <td>Archfiend ETB forces sacrifice of hexproof Scion (sacrifice bypasses hexproof). With no remaining threats, 8/4 kills in 3 attacks.</td>
+      <td><select class="verdict" data-pair="mutantmell.net|skis-n-reads.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+<tr>
+      <td><strong>@meatballwalrus.bsky.social</strong><br><em>Lion's Eye Diamond / Shadowgrange Archfiend / Memnite</em></td>
+      <td><strong>@skis-n-reads.bsky.social</strong><br><em>Lion's Eye Diamond / Leyline of Anticipation / Shadowgrange Archfiend</em></td>
+      <td class="agree">A: L<br>B: L</td>
+      <td class="disagree">A: W<br>B: L</td>
+      <td>Mirror LED-Archfiend — P1's ETB sacs P0's Archfiend. P1's 8/4 dominates P0's lone Memnite.</td>
+      <td>P0's Archfiend ETB sacs P1's Archfiend. Memnite gives P0 the extra body to dominate the empty board.</td>
+      <td>Leyline's flash advantage is decisive. P0 waits for meatball to deploy, then flashes in Archfiend to eat the opposing Archfiend. P0's 8/4 vs Memnite.</td>
+      <td>Flash lets P0 combo after meatball deploys, eating their Archfiend with the ETB. P0's 8/4 easily outraces the surviving Memnite.</td>
+      <td><select class="verdict" data-pair="meatballwalrus.bsky.social|skis-n-reads.bsky.social">
+        <option value="">--</option>
+        <option value="WW">WW (A wins both)</option>
+        <option value="WL">WL (split)</option>
+        <option value="WD">WD</option>
+        <option value="DD">DD (draw both)</option>
+        <option value="DL">DL</option>
+        <option value="LL">LL (B wins both)</option>
+      </select></td>
+    </tr>
+</table>
+<br><button onclick="exportResults()">Export Results (JSON)</button>
+<pre id="output"></pre>
+<script>
+function exportResults() {
+  const results = {};
+  document.querySelectorAll('select.verdict').forEach(s => {
+    if (s.value) results[s.dataset.pair] = s.value;
+  });
+  document.getElementById('output').textContent = JSON.stringify(results, null, 2);
+}
+</script>
+</body></html>
