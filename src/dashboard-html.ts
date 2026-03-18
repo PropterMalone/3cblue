@@ -44,8 +44,8 @@ function showMatrix(phase: string): boolean {
 }
 
 function verdictChar(verdict: string, isP0: boolean): string {
-	if (verdict === "player0_wins") return isP0 ? "W" : "L";
-	if (verdict === "player1_wins") return isP0 ? "L" : "W";
+	if (verdict === "player0_wins" || verdict === "W") return isP0 ? "W" : "L";
+	if (verdict === "player1_wins" || verdict === "L") return isP0 ? "L" : "W";
 	return "D";
 }
 
