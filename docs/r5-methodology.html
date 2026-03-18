@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>R5 — How We Got These Results</title>
+<style>
+body { font-family: system-ui; max-width: 800px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; color: #222; }
+h1 { font-size: 1.5em; border-bottom: 2px solid #333; padding-bottom: 0.3em; }
+h2 { font-size: 1.2em; margin-top: 2em; color: #444; }
+code { background: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
+pre { background: #f5f5f5; padding: 1em; border-radius: 6px; overflow-x: auto; font-size: 0.85em; line-height: 1.4; }
+.note { background: #fff3cd; border-left: 4px solid #ffc107; padding: 0.8em 1em; margin: 1em 0; }
+.stats { background: #e8f5e9; padding: 0.8em 1em; border-radius: 6px; margin: 1em 0; }
+ul { padding-left: 1.5em; }
+li { margin-bottom: 0.3em; }
+</style></head>
+<body>
+
+<h1>Round 5 — How We Got These Results</h1>
+
+<p>This document describes the evaluation process for R5 (20 players, 190 matchups). We're sharing this because we want your expertise — if you see errors in our methodology or results, corrections are welcome.</p>
+
+<div class="stats">
+<strong>Final numbers:</strong> 190 matchups total. 147 resolved by AI agent agreement. 39 resolved by mod review. 4 from historical database.
+</div>
+
+<h2>Step 1: Deck Plans</h2>
+<p>Before evaluating individual matchups, we generated a "deck plan" for each of the 20 decks — a 2-3 sentence summary of what the deck does, its mana sequencing, and key vulnerabilities. These plans were reviewed by a human before proceeding, because an earlier version contained errors (e.g., claiming a deck could play two lands on T1).</p>
+
+<p>You can see the deck plans we used: <a href="deck-plans.html">R5 Deck Plans</a></p>
+
+<h2>Step 2: Per-Deck Agent Evaluation</h2>
+<p>For each of the 20 decks, we launched a Claude AI agent with:</p>
+<ul>
+<li>The full 3CB rules (empty library doesn't lose, worst-outcome convention, best-play search)</li>
+<li>Complete Oracle text for all 60 cards in the field</li>
+<li>Deck plans for every deck (so the agent understands each deck's strategy)</li>
+<li>Instructions to evaluate all 19 opponents from that deck's perspective</li>
+</ul>
+
+<p>Each agent produced per-direction verdicts (on the play and on the draw) plus a 1-2 sentence narrative for each direction. This means every matchup was evaluated twice — once from each side.</p>
+
+<p>The prompt instructs agents to think step by step about mana sequencing, interaction timing, and combat math. Both players play optimally: play to win if possible, force a draw if not, accept the loss if neither.</p>
+
+<h2>Step 3: Crosscheck</h2>
+<p>We compared the two agents' verdicts for each matchup. If Agent A (evaluating Deck X) says "X wins on the play" and Agent B (evaluating Deck Y) says "Y loses on the play," they agree. If they disagree, the matchup is flagged.</p>
+
+<div class="stats">
+<strong>Initial crosscheck:</strong> 126 agreements, 64 disagreements (34% disagreement rate)
+</div>
+
+<h2>Step 4: Corrections and Re-evaluation</h2>
+<p>We identified several categories of errors:</p>
+
+<ul>
+<li><strong>Deck plan errors</strong> propagating to agents (e.g., wrong mana sequencing)</li>
+<li><strong>Card rules errors</strong> (e.g., Phyrexian Revoker can only name nonland cards)</li>
+<li><strong>Strategic errors</strong> (e.g., not considering Alpine Moon T1 as an option)</li>
+</ul>
+
+<p>We re-ran 5 of the most problematic decks with corrected deck plans and additional guidance in the prompt. This reduced disagreements from 64 to 40.</p>
+
+<p>We also ran 9 targeted re-evaluations for specific matchups where deck plan errors were most likely to have changed the outcome. 3 of these flipped the result.</p>
+
+<h2>Step 5: Human Review</h2>
+<p>The remaining 40 disagreements were resolved by mod review. For each, we examined both agents' reasoning and narratives, considered the card interactions, and picked the correct result.</p>
+
+<p>These 39 matchups (plus 4 historical) have a placeholder narrative: <em>"Mod-resolved outcome, no narrative. Please argue your case in the thread."</em></p>
+
+<div class="note">
+<strong>This is where you come in.</strong> If you think a mod-resolved matchup is wrong — or any matchup, really — please reply to the results thread with the matchup, your proposed result, and the key card interactions that support it. We'll re-evaluate and apply corrections.
+</div>
+
+<h2>What the Agents See</h2>
+<p>Here's a simplified version of what each agent receives. The actual prompt is ~27,000 characters and includes full Oracle text for all cards.</p>
+
+<pre>
+You are evaluating Three Card Blind (3CB) matchups
+for one deck against all opponents.
+
+## 3CB Rules
+- 3-card hand, no library. Drawing from empty library
+  does NOT cause a loss.
+- Normal Magic rules. Starting life: 20.
+- Both players play optimally (3 pts win, 1 draw, 0 loss).
+- Coin flips/dice = worst outcome for controller.
+- Evaluate EACH DIRECTION independently.
+- WL (each wins on play) ≠ DD (neither can win).
+
+## Your Deck (@handle)
+[Full Oracle text + deck plan]
+
+## Opponent: @handle
+[Full Oracle text + deck plan]
+... (19 opponents)
+
+## Instructions
+For each opponent:
+1. On-the-play verdict + narrative (you go first)
+2. On-the-draw verdict + narrative (opponent goes first)
+Think step by step about mana sequencing,
+interaction timing, and combat math.
+
+VERDICT: P0_WINS | P1_WINS | DRAW
+NARRATIVE: [1-2 sentences, under 200 chars]
+</pre>
+
+<h2>Known Limitations</h2>
+<ul>
+<li><strong>AI agents make mistakes.</strong> Complex card interactions, unusual timing windows, and layer-dependent effects are all error-prone. The crosscheck catches many but not all errors.</li>
+<li><strong>34% initial disagreement rate</strong> is high. This suggests the agents are uncertain about many matchups, and the "correct" result for some matchups may be genuinely debatable.</li>
+<li><strong>Mod review is fallible too.</strong> Some of the 39 mod-resolved matchups may be wrong. That's why we're inviting corrections.</li>
+<li><strong>Narratives may not match outcomes</strong> for agent-agreed matchups where the agents agreed on the verdict but described slightly different play sequences.</li>
+</ul>
+
+<h2>Correction Process</h2>
+<p>Reply to the results thread on Bluesky with your correction. Include:</p>
+<ul>
+<li>Which matchup (e.g., "nickchk vs brythefryguy")</li>
+<li>Your proposed result (e.g., "WL — nickchk wins on the play, brythefryguy wins on the draw")</li>
+<li>Why — the key card interactions that determine the outcome</li>
+</ul>
+<p>We'll re-evaluate and update the dashboard. All corrections are tracked with an audit trail.</p>
+
+<p><a href="index.html">&larr; Back to Dashboard</a></p>
+
+</body></html>
