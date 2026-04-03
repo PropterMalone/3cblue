@@ -57,6 +57,7 @@ interface PairResult {
 	handleA?: string;
 	handleB?: string;
 	disputed?: boolean;
+	needsReview?: boolean;
 }
 
 function getPairResult(
@@ -79,6 +80,7 @@ function getPairResult(
 
 	const isP0 = m.player0Did === playerA;
 	const disputed = m.llmReasoning?.startsWith("Resolved disagreement") ?? false;
+	const needsReview = m.needsReview;
 
 	let display: string;
 	let tooltip = "";
@@ -136,6 +138,7 @@ function getPairResult(
 					handleA: hA,
 					handleB: hB,
 					disputed,
+					needsReview,
 				};
 			}
 		}
@@ -213,6 +216,7 @@ function getPairResult(
 			handleA: hA,
 			handleB: hB,
 			disputed,
+			needsReview,
 		};
 	}
 
@@ -230,7 +234,7 @@ function getPairResult(
 		default:
 			display = "?";
 	}
-	return { display, tooltip, disputed };
+	return { display, tooltip, disputed, needsReview };
 }
 
 function resultClass(result: string | null): string {
@@ -380,7 +384,9 @@ ${bannedSection(bannedCards)}`,
 								: "";
 						const disputedCls = result?.disputed ? " disputed" : "";
 						const disputedAttr = result?.disputed ? ' data-disputed="1"' : "";
-						return `<td class="${cls}${disputedCls}"${titleAttr}${cardsAttr}${disputedAttr}>${result?.display ?? ""}</td>`;
+						const reviewCls = result?.needsReview ? " needs-review" : "";
+						const reviewAttr = result?.needsReview ? ' data-needs-review="1"' : "";
+						return `<td class="${cls}${disputedCls}${reviewCls}"${titleAttr}${cardsAttr}${disputedAttr}${reviewAttr}>${result?.display ?? ""}</td>`;
 					})
 					.join("");
 				return `<tr><th class="matrix-row" title="@${label}">${label.length > 8 ? `${label.slice(0, 7)}…` : label}</th>${cells}</tr>`;
@@ -493,6 +499,9 @@ function wrapHtml(round: { id: number; phase: string }, body: string): string {
   .res-q { background: #2a1a3a; color: #b87aff; }
   .disputed { position: relative; }
   .disputed::after { content: ''; position: absolute; top: 0; right: 0; border-style: solid; border-width: 0 6px 6px 0; border-color: transparent var(--yellow) transparent transparent; }
+  .needs-review { position: relative; }
+  .needs-review::before { content: ''; position: absolute; top: 0; left: 0; border-style: solid; border-width: 6px 6px 0 0; border-color: #5ac8fa transparent transparent transparent; }
+  .narr-inline .narr-review { background: #1a2a3a; border: 1px solid #5ac8fa; border-radius: 4px; padding: 0.4rem 0.6rem; margin-bottom: 0.5rem; color: #5ac8fa; font-size: 0.8rem; }
 
   /* Banned cards */
   .banned-list { list-style: none; padding: 0; column-count: 2; column-gap: 2rem; }
@@ -562,6 +571,9 @@ ${body}
 		var html = '<span class="narr-close">\\u2715</span>';
 		if (td.getAttribute('data-disputed')) {
 			html += '<div class="narr-disputed">Agents disagreed on this matchup — resolved by adjudication. Extra scrutiny welcome.</div>';
+		}
+		if (td.getAttribute('data-needs-review')) {
+			html += '<div class="narr-review">Community correction applied — could use a second opinion.</div>';
 		}
 		var cardsA = (td.getAttribute('data-cards-a') || '').split('|').filter(Boolean);
 		var cardsB = (td.getAttribute('data-cards-b') || '').split('|').filter(Boolean);

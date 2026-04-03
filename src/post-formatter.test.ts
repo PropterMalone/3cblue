@@ -1,4 +1,3 @@
-// pattern: Functional Core
 import { describe, expect, it } from "vitest";
 import type { DbMatchup, DbSubmission } from "./database.js";
 import {
@@ -67,7 +66,6 @@ describe("formatRevealPost", () => {
 	});
 
 	it("splits long reveals into multiple posts", () => {
-		// Create enough submissions to exceed 300 chars
 		const subs = Array.from({ length: 10 }, (_, i) =>
 			makeSub(
 				`did:plc:${i}`,
@@ -109,6 +107,7 @@ describe("formatMatchupResults", () => {
 				onPlayVerdict: null,
 				onDrawVerdict: null,
 				correctionCount: 0,
+				needsReview: false,
 			},
 		];
 		const posts = formatMatchupResults(1, matchups, handleMap);
@@ -215,6 +214,7 @@ describe("formatUnresolvedMatchup", () => {
 			onPlayVerdict: null,
 			onDrawVerdict: null,
 			correctionCount: 0,
+				needsReview: false,
 		};
 		const text = formatUnresolvedMatchup(m, handleMap);
 		expect(text).toContain("Needs judge");

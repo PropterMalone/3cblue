@@ -11,7 +11,7 @@ export interface DbRound {
 	phase: RoundPhase;
 	createdAt: string;
 	submissionDeadline: string | null;
-	postUri: string | null; // announcement post URI
+	postUri: string | null;
 }
 
 export interface DbPlayer {
@@ -28,7 +28,7 @@ export interface DbSubmission {
 	card1Name: string;
 	card2Name: string;
 	card3Name: string;
-	card1Json: string; // serialized Card
+	card1Json: string;
 	card2Json: string;
 	card3Json: string;
 	submittedAt: string;
@@ -39,17 +39,18 @@ export interface DbMatchup {
 	roundId: number;
 	player0Did: string;
 	player1Did: string;
-	outcome: string; // "player0_wins" | "player1_wins" | "draw" | "unresolved"
+	outcome: string;
 	unresolvedReason: string | null;
-	judgeResolution: string | null; // "player0_wins" | "player1_wins" | "draw"
+	judgeResolution: string | null;
 	judgedByDid: string | null;
-	statsJson: string; // serialized SearchStats or LLM metadata
+	statsJson: string;
 	llmReasoning: string | null;
-	narrative: string | null; // player-facing play-by-play for posting
+	narrative: string | null;
 	postUri: string | null;
-	onPlayVerdict: string | null; // per-direction: "W" | "L" | "D"
-	onDrawVerdict: string | null; // per-direction: "W" | "L" | "D"
+	onPlayVerdict: string | null;
+	onDrawVerdict: string | null;
 	correctionCount: number;
+	needsReview: boolean;
 }
 
 export interface DbCorrection {
@@ -115,7 +116,11 @@ function initSchema(db: Database.Database): void {
 			stats_json TEXT NOT NULL,
 			llm_reasoning TEXT,
 			narrative TEXT,
-			post_uri TEXT
+			post_uri TEXT,
+			on_play_verdict TEXT,
+			on_draw_verdict TEXT,
+			correction_count INTEGER NOT NULL DEFAULT 0,
+			needs_review INTEGER NOT NULL DEFAULT 0
 		);
 
 		CREATE TABLE IF NOT EXISTS judges (
@@ -159,6 +164,7 @@ function initSchema(db: Database.Database): void {
 	addColumn("matchups", "on_play_verdict", "TEXT");
 	addColumn("matchups", "on_draw_verdict", "TEXT");
 	addColumn("matchups", "correction_count", "INTEGER NOT NULL DEFAULT 0");
+	addColumn("matchups", "needs_review", "INTEGER NOT NULL DEFAULT 0");
 }
 
 // --- Round operations ---
@@ -167,6 +173,13 @@ export function createRound(
 	db: Database.Database,
 	deadlineHours = 24,
 ): DbRound {
+	const active = getActiveRound(db);
+	if (active) {
+		throw new Error(
+			`round ${active.id} is still in ${active.phase} phase — complete it before starting a new round`,
+		);
+	}
+
 	const deadline = new Date(
 		Date.now() + deadlineHours * 60 * 60 * 1000,
 	).toISOString();
@@ -354,7 +367,6 @@ export function getUnresolvedMatchups(
 	return rows.map(mapMatchup);
 }
 
-/** All matchups from completed rounds, for leaderboard aggregation. */
 export function getAllCompletedMatchups(db: Database.Database): DbMatchup[] {
 	const rows = db
 		.prepare(
@@ -366,7 +378,6 @@ export function getAllCompletedMatchups(db: Database.Database): DbMatchup[] {
 	return rows.map(mapMatchup);
 }
 
-/** All unique player DIDs who have submitted in completed rounds. */
 export function getCompletedRoundPlayerDids(db: Database.Database): string[] {
 	const rows = db
 		.prepare(
@@ -378,7 +389,6 @@ export function getCompletedRoundPlayerDids(db: Database.Database): string[] {
 	return rows.map((r) => r.player_did as string);
 }
 
-/** Count of completed rounds. */
 export function getCompletedRoundCount(db: Database.Database): number {
 	const row = db
 		.prepare("SELECT COUNT(*) as count FROM rounds WHERE phase = 'complete'")
@@ -389,6 +399,12 @@ export function getCompletedRoundCount(db: Database.Database): number {
 // --- Judge operations ---
 
 export function addJudge(db: Database.Database, did: string): void {
+	const player = db.prepare("SELECT 1 FROM players WHERE did = ?").get(did);
+	if (!player) {
+		throw new Error(
+			`player ${did} not found — they must submit a deck before being added as judge`,
+		);
+	}
 	db.prepare("INSERT OR IGNORE INTO judges (did) VALUES (?)").run(did);
 }
 
@@ -399,7 +415,6 @@ export function isJudge(db: Database.Database, did: string): boolean {
 
 // --- Winner ban operations ---
 
-/** Basic lands are never winner-banned — they're format infrastructure. */
 const BASIC_LAND_NAMES = new Set([
 	"Plains",
 	"Island",
@@ -423,7 +438,7 @@ export function addWinnerBan(
 	cardName: string,
 	roundId: number,
 ): void {
-	if (isBasicLand(cardName)) return; // basic lands are never banned
+	if (isBasicLand(cardName)) return;
 	db.prepare(
 		"INSERT OR IGNORE INTO banned_cards (card_name, banned_from_round) VALUES (?, ?)",
 	).run(cardName, roundId);
@@ -455,7 +470,6 @@ export function isWinnerBanned(
 
 // --- Correction operations ---
 
-/** Apply a correction to a matchup with full audit trail. Transactional. */
 export function applyCorrection(
 	db: Database.Database,
 	matchupId: number,
@@ -463,8 +477,9 @@ export function applyCorrection(
 	newNarrative?: string | null,
 	requestedBy?: string | null,
 	reason?: string | null,
+	onPlayVerdict?: string | null,
+	onDrawVerdict?: string | null,
 ): DbCorrection {
-	// checkpoint WAL after corrections to prevent data loss
 	const apply = db.transaction(() => {
 		const matchup = db
 			.prepare("SELECT outcome, narrative FROM matchups WHERE id = ?")
@@ -489,8 +504,17 @@ export function applyCorrection(
 			) as Record<string, unknown>;
 
 		db.prepare(
-			"UPDATE matchups SET outcome = ?, narrative = COALESCE(?, narrative), correction_count = correction_count + 1 WHERE id = ?",
-		).run(newOutcome, newNarrative ?? null, matchupId);
+			`UPDATE matchups SET outcome = ?, narrative = COALESCE(?, narrative),
+			 on_play_verdict = COALESCE(?, on_play_verdict),
+			 on_draw_verdict = COALESCE(?, on_draw_verdict),
+			 correction_count = correction_count + 1 WHERE id = ?`,
+		).run(
+			newOutcome,
+			newNarrative ?? null,
+			onPlayVerdict ?? null,
+			onDrawVerdict ?? null,
+			matchupId,
+		);
 
 		return mapCorrection(correction);
 	});
@@ -588,6 +612,7 @@ function mapMatchup(row: Record<string, unknown>): DbMatchup {
 		onPlayVerdict: (row.on_play_verdict as string | null) ?? null,
 		onDrawVerdict: (row.on_draw_verdict as string | null) ?? null,
 		correctionCount: (row.correction_count as number) ?? 0,
+		needsReview: (row.needs_review as number) === 1,
 	};
 }
 
