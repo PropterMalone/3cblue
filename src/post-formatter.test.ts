@@ -107,7 +107,7 @@ describe("formatMatchupResults", () => {
 				onPlayVerdict: null,
 				onDrawVerdict: null,
 				correctionCount: 0,
-				needsReview: false,
+				reviewStatus: "reviewed" as const,
 			},
 		];
 		const posts = formatMatchupResults(1, matchups, handleMap);
@@ -214,7 +214,7 @@ describe("formatUnresolvedMatchup", () => {
 			onPlayVerdict: null,
 			onDrawVerdict: null,
 			correctionCount: 0,
-				needsReview: false,
+			reviewStatus: "reviewed" as const,
 		};
 		const text = formatUnresolvedMatchup(m, handleMap);
 		expect(text).toContain("Needs judge");

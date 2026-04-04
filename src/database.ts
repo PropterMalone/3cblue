@@ -5,6 +5,7 @@
 import Database from "better-sqlite3";
 
 export type RoundPhase = "submission" | "resolution" | "judging" | "complete";
+export type ReviewStatus = "unreviewed" | "reviewed" | "disputed";
 
 export interface DbRound {
 	id: number;
@@ -12,6 +13,7 @@ export interface DbRound {
 	createdAt: string;
 	submissionDeadline: string | null;
 	postUri: string | null;
+	standingsThreadUri: string | null;
 }
 
 export interface DbPlayer {
@@ -50,7 +52,7 @@ export interface DbMatchup {
 	onPlayVerdict: string | null;
 	onDrawVerdict: string | null;
 	correctionCount: number;
-	needsReview: boolean;
+	reviewStatus: ReviewStatus;
 }
 
 export interface DbCorrection {
@@ -165,6 +167,17 @@ function initSchema(db: Database.Database): void {
 	addColumn("matchups", "on_draw_verdict", "TEXT");
 	addColumn("matchups", "correction_count", "INTEGER NOT NULL DEFAULT 0");
 	addColumn("matchups", "needs_review", "INTEGER NOT NULL DEFAULT 0");
+	addColumn("matchups", "review_status", "TEXT NOT NULL DEFAULT 'unreviewed'");
+	addColumn("rounds", "standings_thread_uri", "TEXT");
+
+	// Migrate needs_review → review_status (one-time, idempotent)
+	try {
+		db.exec(
+			"UPDATE matchups SET review_status = 'disputed' WHERE needs_review = 1 AND review_status = 'unreviewed'",
+		);
+	} catch {
+		// needs_review column may not exist on fresh DBs created without it
+	}
 }
 
 // --- Round operations ---
@@ -227,6 +240,47 @@ export function updateRoundPostUri(
 		postUri,
 		roundId,
 	);
+}
+
+export function updateRoundStandingsUri(
+	db: Database.Database,
+	roundId: number,
+	uri: string,
+): void {
+	db.prepare("UPDATE rounds SET standings_thread_uri = ? WHERE id = ?").run(
+		uri,
+		roundId,
+	);
+}
+
+export function setReviewStatus(
+	db: Database.Database,
+	matchupId: number,
+	status: ReviewStatus,
+): void {
+	db.prepare("UPDATE matchups SET review_status = ? WHERE id = ?").run(
+		status,
+		matchupId,
+	);
+}
+
+export function getMatchupByPlayers(
+	db: Database.Database,
+	roundId: number,
+	didA: string,
+	didB: string,
+): DbMatchup | undefined {
+	const row = db
+		.prepare(
+			`SELECT * FROM matchups WHERE round_id = ? AND (
+				(player0_did = ? AND player1_did = ?) OR
+				(player0_did = ? AND player1_did = ?)
+			)`,
+		)
+		.get(roundId, didA, didB, didB, didA) as
+		| Record<string, unknown>
+		| undefined;
+	return row ? mapMatchup(row) : undefined;
 }
 
 // --- Player operations ---
@@ -479,6 +533,7 @@ export function applyCorrection(
 	reason?: string | null,
 	onPlayVerdict?: string | null,
 	onDrawVerdict?: string | null,
+	reviewStatus?: ReviewStatus | null,
 ): DbCorrection {
 	const apply = db.transaction(() => {
 		const matchup = db
@@ -507,12 +562,14 @@ export function applyCorrection(
 			`UPDATE matchups SET outcome = ?, narrative = COALESCE(?, narrative),
 			 on_play_verdict = COALESCE(?, on_play_verdict),
 			 on_draw_verdict = COALESCE(?, on_draw_verdict),
+			 review_status = COALESCE(?, review_status),
 			 correction_count = correction_count + 1 WHERE id = ?`,
 		).run(
 			newOutcome,
 			newNarrative ?? null,
 			onPlayVerdict ?? null,
 			onDrawVerdict ?? null,
+			reviewStatus ?? null,
 			matchupId,
 		);
 
@@ -568,6 +625,7 @@ function mapRound(row: Record<string, unknown>): DbRound {
 		createdAt: row.created_at as string,
 		submissionDeadline: row.submission_deadline as string | null,
 		postUri: row.post_uri as string | null,
+		standingsThreadUri: (row.standings_thread_uri as string | null) ?? null,
 	};
 }
 
@@ -612,7 +670,7 @@ function mapMatchup(row: Record<string, unknown>): DbMatchup {
 		onPlayVerdict: (row.on_play_verdict as string | null) ?? null,
 		onDrawVerdict: (row.on_draw_verdict as string | null) ?? null,
 		correctionCount: (row.correction_count as number) ?? 0,
-		needsReview: (row.needs_review as number) === 1,
+		reviewStatus: (row.review_status as ReviewStatus) ?? "unreviewed",
 	};
 }
 

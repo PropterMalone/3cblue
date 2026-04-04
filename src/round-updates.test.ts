@@ -1,18 +1,14 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { readFileSync, writeFileSync, unlinkSync, existsSync } from "node:fs";
+import { existsSync, unlinkSync } from "node:fs";
 import { mkdirSync } from "node:fs";
 import Database from "better-sqlite3";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-	readUpdates,
-	writeUpdates,
+	type RoundUpdate,
 	appendUpdate,
 	applyUpdates,
-	type RoundUpdate,
+	readUpdates,
+	writeUpdates,
 } from "./round-updates.js";
-
-// Use a test-specific JSONL path by patching the module's path logic
-// Actually, the module uses data/round-updates/r{N}-updates.jsonl
-// We'll use round 99 to avoid collisions
 
 const TEST_ROUND = 99;
 const TEST_PATH = "data/round-updates/r99-updates.jsonl";
@@ -38,7 +34,10 @@ describe("round-updates JSONL I/O", () => {
 				matchup: ["alice.bsky.social", "bob.bsky.social"],
 				play: "W",
 				draw: "D",
-				source: { type: "bsky", uri: "at://did:plc:abc/app.bsky.feed.post/xyz" },
+				source: {
+					type: "bsky",
+					uri: "at://did:plc:abc/app.bsky.feed.post/xyz",
+				},
 				reason: "Karakas bounces before combat",
 				status: "pending",
 			},
@@ -63,7 +62,11 @@ describe("round-updates JSONL I/O", () => {
 			matchup: ["carol.bsky.social", "dave.bsky.social"],
 			play: "L",
 			draw: "L",
-			source: { type: "conversation", date: "2026-03-15", context: "discussed in session" },
+			source: {
+				type: "conversation",
+				date: "2026-03-15",
+				context: "discussed in session",
+			},
 			reason: "second",
 			status: "pending",
 		};
@@ -86,7 +89,6 @@ describe("applyUpdates", () => {
 		db.pragma("journal_mode = WAL");
 		db.pragma("foreign_keys = ON");
 
-		// Minimal schema
 		db.exec(`
 			CREATE TABLE rounds (id INTEGER PRIMARY KEY, phase TEXT NOT NULL DEFAULT 'resolution');
 			CREATE TABLE players (did TEXT PRIMARY KEY, handle TEXT NOT NULL);
@@ -100,7 +102,8 @@ describe("applyUpdates", () => {
 				player0_did TEXT, player1_did TEXT,
 				outcome TEXT NOT NULL, narrative TEXT,
 				on_play_verdict TEXT, on_draw_verdict TEXT,
-				correction_count INTEGER NOT NULL DEFAULT 0
+				correction_count INTEGER NOT NULL DEFAULT 0,
+				review_status TEXT NOT NULL DEFAULT 'unreviewed'
 			);
 			CREATE TABLE corrections (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -112,8 +115,14 @@ describe("applyUpdates", () => {
 		`);
 
 		db.prepare("INSERT INTO rounds (id) VALUES (?)").run(TEST_ROUND);
-		db.prepare("INSERT INTO players VALUES (?, ?)").run("did:alice", "alice.bsky.social");
-		db.prepare("INSERT INTO players VALUES (?, ?)").run("did:bob", "bob.bsky.social");
+		db.prepare("INSERT INTO players VALUES (?, ?)").run(
+			"did:alice",
+			"alice.bsky.social",
+		);
+		db.prepare("INSERT INTO players VALUES (?, ?)").run(
+			"did:bob",
+			"bob.bsky.social",
+		);
 		db.prepare(
 			`INSERT INTO matchups (id, round_id, player0_did, player1_did, outcome, on_play_verdict, on_draw_verdict)
 			 VALUES (1, ?, 'did:alice', 'did:bob', 'LL', 'L', 'L')`,
@@ -140,18 +149,21 @@ describe("applyUpdates", () => {
 		expect(result.applied).toBe(1);
 		expect(result.errors).toHaveLength(0);
 
-		// Check DB was updated
-		const m = db.prepare("SELECT on_play_verdict, on_draw_verdict FROM matchups WHERE id = 1").get() as any;
+		const m = db
+			.prepare(
+				"SELECT on_play_verdict, on_draw_verdict FROM matchups WHERE id = 1",
+			)
+			.get() as { on_play_verdict: string; on_draw_verdict: string };
 		expect(m.on_play_verdict).toBe("W");
 		expect(m.on_draw_verdict).toBe("D");
 
-		// Check correction was recorded
-		const c = db.prepare("SELECT * FROM corrections WHERE matchup_id = 1").get() as any;
+		const c = db
+			.prepare("SELECT * FROM corrections WHERE matchup_id = 1")
+			.get() as { old_outcome: string; new_outcome: string; reason: string };
 		expect(c.old_outcome).toBe("LL");
 		expect(c.new_outcome).toBe("WD");
 		expect(c.reason).toBe("alice wins on play, draws on draw");
 
-		// Check JSONL was updated
 		const updates = readUpdates(TEST_ROUND);
 		expect(updates[0]!.status).toBe("applied");
 		expect(updates[0]!.appliedAt).toBeDefined();
@@ -175,12 +187,15 @@ describe("applyUpdates", () => {
 	});
 
 	it("flips verdicts when matchup is stored in reverse order", () => {
-		// Update written from bob's perspective (bob wins on play)
 		const update: RoundUpdate = {
 			matchup: ["bob.bsky.social", "alice.bsky.social"],
 			play: "W",
 			draw: "D",
-			source: { type: "conversation", date: "2026-03-15", context: "reviewed together" },
+			source: {
+				type: "conversation",
+				date: "2026-03-15",
+				context: "reviewed together",
+			},
 			reason: "bob wins on play",
 			status: "pending",
 		};
@@ -188,15 +203,19 @@ describe("applyUpdates", () => {
 
 		applyUpdates(db, TEST_ROUND);
 
-		// DB has alice as p0, so bob winning → alice losing on play
-		const m = db.prepare("SELECT on_play_verdict, on_draw_verdict FROM matchups WHERE id = 1").get() as any;
+		const m = db
+			.prepare(
+				"SELECT on_play_verdict, on_draw_verdict FROM matchups WHERE id = 1",
+			)
+			.get() as { on_play_verdict: string; on_draw_verdict: string };
 		expect(m.on_play_verdict).toBe("L");
 		expect(m.on_draw_verdict).toBe("D");
 	});
 
 	it("skips no-op updates where verdicts already match", () => {
-		// Set matchup to W/D already
-		db.prepare("UPDATE matchups SET on_play_verdict = 'W', on_draw_verdict = 'D' WHERE id = 1").run();
+		db.prepare(
+			"UPDATE matchups SET on_play_verdict = 'W', on_draw_verdict = 'D' WHERE id = 1",
+		).run();
 
 		const update: RoundUpdate = {
 			matchup: ["alice.bsky.social", "bob.bsky.social"],
@@ -212,8 +231,9 @@ describe("applyUpdates", () => {
 		expect(result.applied).toBe(0);
 		expect(result.skipped).toBe(1);
 
-		// No correction record created
-		const c = db.prepare("SELECT COUNT(*) as c FROM corrections").get() as any;
+		const c = db.prepare("SELECT COUNT(*) as c FROM corrections").get() as {
+			c: number;
+		};
 		expect(c.c).toBe(0);
 	});
 
@@ -231,13 +251,54 @@ describe("applyUpdates", () => {
 		const result = applyUpdates(db, TEST_ROUND, true);
 		expect(result.applied).toBe(1);
 
-		// DB unchanged
-		const m = db.prepare("SELECT on_play_verdict FROM matchups WHERE id = 1").get() as any;
+		const m = db
+			.prepare("SELECT on_play_verdict FROM matchups WHERE id = 1")
+			.get() as { on_play_verdict: string };
 		expect(m.on_play_verdict).toBe("L");
 
-		// File unchanged
 		const updates = readUpdates(TEST_ROUND);
 		expect(updates[0]!.status).toBe("pending");
+	});
+
+	it("resolves partial handle via prefix match", () => {
+		db.prepare("INSERT INTO players VALUES (?, ?)").run(
+			"did:jkyu06",
+			"jkyu06.bsky.social",
+		);
+		db.prepare(
+			`INSERT INTO matchups (id, round_id, player0_did, player1_did, outcome, on_play_verdict, on_draw_verdict)
+			 VALUES (2, ?, 'did:alice', 'did:jkyu06', 'LL', 'L', 'L')`,
+		).run(TEST_ROUND);
+
+		const update: RoundUpdate = {
+			matchup: ["alice.bsky.social", "jkyu"],
+			play: "W",
+			draw: "D",
+			source: { type: "bsky", uri: "at://post1" },
+			reason: "prefix handle match",
+			status: "pending",
+		};
+		writeUpdates(TEST_ROUND, [update]);
+
+		const result = applyUpdates(db, TEST_ROUND);
+		expect(result.applied).toBe(1);
+		expect(result.errors).toHaveLength(0);
+	});
+
+	it("resolves handles with trailing punctuation", () => {
+		const update: RoundUpdate = {
+			matchup: ["alice.bsky.social", "bob."],
+			play: "W",
+			draw: "D",
+			source: { type: "bsky", uri: "at://post1" },
+			reason: "trailing dot in handle",
+			status: "pending",
+		};
+		writeUpdates(TEST_ROUND, [update]);
+
+		const result = applyUpdates(db, TEST_ROUND);
+		expect(result.applied).toBe(1);
+		expect(result.errors).toHaveLength(0);
 	});
 
 	it("reports errors for unknown handles", () => {

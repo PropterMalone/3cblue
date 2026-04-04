@@ -1,7 +1,7 @@
 // pattern: Functional Core (generateDashboardHtml) + Imperative Shell (generateDashboardFromDb)
 
 import type Database from "better-sqlite3";
-import type { DbMatchup } from "./database.js";
+import type { DbMatchup, ReviewStatus } from "./database.js";
 import {
 	getActiveRound,
 	getMatchupsForRound,
@@ -56,8 +56,7 @@ interface PairResult {
 	cardsB?: string[];
 	handleA?: string;
 	handleB?: string;
-	disputed?: boolean;
-	needsReview?: boolean;
+	reviewStatus?: ReviewStatus;
 }
 
 function getPairResult(
@@ -79,8 +78,14 @@ function getPairResult(
 	if (outcome === "unresolved") return { display: "?", tooltip: "" };
 
 	const isP0 = m.player0Did === playerA;
-	const disputed = m.llmReasoning?.startsWith("Resolved disagreement") ?? false;
-	const needsReview = m.needsReview;
+	const legacyDisputed =
+		m.llmReasoning?.startsWith("Resolved disagreement") ?? false;
+	const reviewStatus: ReviewStatus =
+		m.reviewStatus !== "unreviewed"
+			? m.reviewStatus
+			: legacyDisputed
+				? "disputed"
+				: "unreviewed";
 
 	let display: string;
 	let tooltip = "";
@@ -137,8 +142,7 @@ function getPairResult(
 					cardsB: pB?.cards,
 					handleA: hA,
 					handleB: hB,
-					disputed,
-					needsReview,
+					reviewStatus,
 				};
 			}
 		}
@@ -215,8 +219,7 @@ function getPairResult(
 			cardsB: pB?.cards,
 			handleA: hA,
 			handleB: hB,
-			disputed,
-			needsReview,
+			reviewStatus,
 		};
 	}
 
@@ -234,7 +237,7 @@ function getPairResult(
 		default:
 			display = "?";
 	}
-	return { display, tooltip, disputed, needsReview };
+	return { display, tooltip, reviewStatus };
 }
 
 function resultClass(result: string | null): string {
@@ -382,11 +385,16 @@ ${bannedSection(bannedCards)}`,
 							result?.cardsA && result?.cardsB
 								? ` data-cards-a="${escapeHtml(result.cardsA.join("|"))}" data-cards-b="${escapeHtml(result.cardsB.join("|"))}" data-ha="${escapeHtml(result.handleA ?? "")}" data-hb="${escapeHtml(result.handleB ?? "")}"`
 								: "";
-						const disputedCls = result?.disputed ? " disputed" : "";
-						const disputedAttr = result?.disputed ? ' data-disputed="1"' : "";
-						const reviewCls = result?.needsReview ? " needs-review" : "";
-						const reviewAttr = result?.needsReview ? ' data-needs-review="1"' : "";
-						return `<td class="${cls}${disputedCls}${reviewCls}"${titleAttr}${cardsAttr}${disputedAttr}${reviewAttr}>${result?.display ?? ""}</td>`;
+						const rs = result?.reviewStatus;
+						const statusCls =
+							rs === "disputed"
+								? " disputed"
+								: rs === "unreviewed"
+									? " needs-review"
+									: "";
+						const statusAttr =
+							rs && rs !== "reviewed" ? ` data-review-status="${rs}"` : "";
+						return `<td class="${cls}${statusCls}"${titleAttr}${cardsAttr}${statusAttr}>${result?.display ?? ""}</td>`;
 					})
 					.join("");
 				return `<tr><th class="matrix-row" title="@${label}">${label.length > 8 ? `${label.slice(0, 7)}…` : label}</th>${cells}</tr>`;
@@ -569,11 +577,11 @@ ${body}
 	function buildHtml(raw, td) {
 		var lines = raw.split('\\n');
 		var html = '<span class="narr-close">\\u2715</span>';
-		if (td.getAttribute('data-disputed')) {
-			html += '<div class="narr-disputed">Agents disagreed on this matchup — resolved by adjudication. Extra scrutiny welcome.</div>';
-		}
-		if (td.getAttribute('data-needs-review')) {
-			html += '<div class="narr-review">Community correction applied — could use a second opinion.</div>';
+		var rs = td.getAttribute('data-review-status');
+		if (rs === 'disputed') {
+			html += '<div class="narr-disputed">Conflicting corrections — needs human review.</div>';
+		} else if (rs === 'unreviewed') {
+			html += '<div class="narr-review">Not yet reviewed by the community.</div>';
 		}
 		var cardsA = (td.getAttribute('data-cards-a') || '').split('|').filter(Boolean);
 		var cardsB = (td.getAttribute('data-cards-b') || '').split('|').filter(Boolean);
