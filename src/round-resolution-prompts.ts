@@ -39,8 +39,10 @@ export interface MatchupVerdict {
 
 /** Derive the overall outcome from per-direction verdicts. */
 export function deriveOverall(onPlay: Verdict, onDraw: Verdict): Verdict {
-	if (onPlay === "player0_wins" && onDraw === "player0_wins") return "player0_wins";
-	if (onPlay === "player1_wins" && onDraw === "player1_wins") return "player1_wins";
+	if (onPlay === "player0_wins" && onDraw === "player0_wins")
+		return "player0_wins";
+	if (onPlay === "player1_wins" && onDraw === "player1_wins")
+		return "player1_wins";
 	if (onPlay === "draw" && onDraw === "draw") return "draw";
 	// Mixed results (WL, WD, DL) — not a draw, not a clean win. Return the better side for p0.
 	// WL/LW = split. WD/DW = p0 advantage. DL/LD = p1 advantage.
@@ -118,9 +120,10 @@ For each opponent, evaluate the matchup in both directions: you go first (on the
 **Step 2 — Opponent win analysis.** If the active player can't force a win: does the opponent have a line that wins regardless? Consider that the active player is now playing *defensively* — they may make completely different plays than in Step 1 (different targets for discard, holding cards instead of casting them, using removal defensively rather than aggressively). If the opponent wins even against best defense → the active player loses this direction. Move to verdict.
 
 **Step 3 — Draw analysis.** If neither side can force a win: both players play to avoid losing. Can either side break the stalemate? Common draw patterns:
-- Both players hold cards because committing first gets punished
+- **Commit-first-loses:** Player A holds a threat; Player B holds an answer. If A commits, B answers and wins. If B uses the answer preemptively, A's threat resolves. Neither player acts → DRAW. Example: Oko vs Force of Will — if Oko is cast, Force counters it; if Force is used on something else, Oko resolves. Optimal play for both is to hold forever.
 - A threat is neutralized and neither side has a second angle of attack
 - A small creature pressures but the opponent can chump/block indefinitely
+- A taxing effect (e.g. Mana Tithe, Daze) counters the only threat and neither side has another line
 If neither side can force a win through best defense → DRAW.
 
 IMPORTANT: Step 2 and Step 3 are *fresh analyses*, not continuations of Step 1. When a player shifts from "trying to win" to "trying not to lose," their optimal plays often change entirely. Re-evaluate from scratch.
