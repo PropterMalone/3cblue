@@ -1,15 +1,16 @@
-// pattern: Functional Core
-import type { Card } from "./card-types.js";
 import { describe, expect, it } from "vitest";
+import type { Card } from "./card-types.js";
 import type { DeckInfo, MatchupVerdict } from "./round-resolution-prompts.js";
 import {
 	buildDeckAgentPrompt,
+	buildDeckPlansPrompt,
 	buildNarrativeOnlyPrompt,
 	canonicalDeckKey,
 	crosscheckAllPairs,
 	crosscheckVerdicts,
 	flipVerdict,
 	parseAgentVerdicts,
+	parseDeckPlans,
 	parseNarrativeOnlyOutput,
 } from "./round-resolution-prompts.js";
 
@@ -95,7 +96,7 @@ describe("buildDeckAgentPrompt", () => {
 		expect(prompt).toContain("### vs @charlie.bsky.social");
 		expect(prompt).toContain("#### On the Play");
 		expect(prompt).toContain("#### On the Draw");
-		expect(prompt).toContain("#### Overall");
+		expect(prompt).not.toContain("#### Overall");
 	});
 });
 
@@ -209,7 +210,6 @@ describe("flipVerdict", () => {
 
 describe("crosscheckVerdicts", () => {
 	it("detects agreement when both say A wins", () => {
-		// Agent A says A wins (P0_WINS from A's perspective)
 		const aVerdict: MatchupVerdict = {
 			opponentDid: "did:plc:bob",
 			onThePlay: "player0_wins",
@@ -218,7 +218,6 @@ describe("crosscheckVerdicts", () => {
 			playNarrative: "A wins on play",
 			drawNarrative: "A wins on draw",
 		};
-		// Agent B says A wins (P1_WINS from B's perspective)
 		const bVerdict: MatchupVerdict = {
 			opponentDid: "did:plc:alice",
 			onThePlay: "player1_wins",
@@ -238,7 +237,6 @@ describe("crosscheckVerdicts", () => {
 		);
 		expect(result.agreed).toBe(true);
 		expect(result.outcome).toBe("player0_wins");
-		// Winner is P0 (alice), so use A's narratives
 		expect(result.playNarrative).toBe("A wins on play");
 	});
 
@@ -251,7 +249,6 @@ describe("crosscheckVerdicts", () => {
 			playNarrative: "A wins",
 			drawNarrative: "A wins",
 		};
-		// Agent B also says B wins (P0_WINS from B's perspective)
 		const bVerdict: MatchupVerdict = {
 			opponentDid: "did:plc:alice",
 			onThePlay: "player0_wins",
@@ -302,7 +299,6 @@ describe("crosscheckVerdicts", () => {
 		);
 		expect(result.agreed).toBe(true);
 		expect(result.outcome).toBe("draw");
-		// For draws, use A's (P0's) narratives
 		expect(result.playNarrative).toBe("A wins on play");
 	});
 
@@ -334,7 +330,6 @@ describe("crosscheckVerdicts", () => {
 		);
 		expect(result.agreed).toBe(true);
 		expect(result.outcome).toBe("player1_wins");
-		// B wins, so use B's narratives (flipped perspective)
 		expect(result.playNarrative).toBe("B wins on draw");
 		expect(result.drawNarrative).toBe("B wins on play");
 	});
@@ -347,7 +342,6 @@ describe("crosscheckAllPairs", () => {
 			{ verdicts: MatchupVerdict[]; rawOutput: string }
 		>();
 
-		// Alice's agent: beats Bob, loses to Charlie
 		agentResults.set("did:plc:alice", {
 			verdicts: [
 				{
@@ -370,7 +364,6 @@ describe("crosscheckAllPairs", () => {
 			rawOutput: "alice raw",
 		});
 
-		// Bob's agent: agrees Alice beats him, beats Charlie
 		agentResults.set("did:plc:bob", {
 			verdicts: [
 				{
@@ -393,7 +386,6 @@ describe("crosscheckAllPairs", () => {
 			rawOutput: "bob raw",
 		});
 
-		// Charlie's agent: agrees she beats Alice, DISAGREES about Bob (says she beats Bob too)
 		agentResults.set("did:plc:charlie", {
 			verdicts: [
 				{
@@ -418,9 +410,6 @@ describe("crosscheckAllPairs", () => {
 
 		const { agreements, disagreements } = crosscheckAllPairs(agentResults);
 
-		// Alice vs Bob: agree (A wins)
-		// Alice vs Charlie: agree (C wins)
-		// Bob vs Charlie: disagree (Bob says B wins, Charlie says C wins)
 		expect(agreements).toHaveLength(2);
 		expect(disagreements).toHaveLength(1);
 
@@ -468,5 +457,76 @@ NARRATIVE: Counterspell stops the key play, stalling to a draw.`;
 		const result = parseNarrativeOnlyOutput(output);
 		expect(result.playNarrative).toContain("Goblin Guide attacks");
 		expect(result.drawNarrative).toContain("Counterspell stops");
+	});
+});
+
+describe("deck plans", () => {
+	it("buildDeckAgentPrompt injects deck plans when present", () => {
+		const deckWithPlan: DeckInfo = {
+			...deckA,
+			deckPlan:
+				"Three hasty 2/2s race for 6 damage per turn. Wins against anything that can't block or interact on T1.",
+		};
+		const oppWithPlan: DeckInfo = {
+			...deckB,
+			deckPlan:
+				"Three vanilla 2/2s for 2 mana each. Needs T2 to deploy, loses the race to haste creatures.",
+		};
+		const prompt = buildDeckAgentPrompt(deckWithPlan, [oppWithPlan]);
+		expect(prompt).toContain("**Deck plan:** Three hasty 2/2s");
+		expect(prompt).toContain("**Deck plan:** Three vanilla 2/2s");
+	});
+
+	it("buildDeckAgentPrompt works without deck plans", () => {
+		const prompt = buildDeckAgentPrompt(deckA, [deckB]);
+		expect(prompt).not.toContain("**Deck plan:**");
+		expect(prompt).toContain("Goblin Guide");
+	});
+
+	it("buildNarrativeOnlyPrompt injects deck plans when present", () => {
+		const d0: DeckInfo = { ...deckA, deckPlan: "Aggro plan" };
+		const d1: DeckInfo = { ...deckB, deckPlan: "Midrange plan" };
+		const prompt = buildNarrativeOnlyPrompt(d0, d1, "player0_wins");
+		expect(prompt).toContain("**Deck plan:** Aggro plan");
+		expect(prompt).toContain("**Deck plan:** Midrange plan");
+	});
+
+	it("buildDeckPlansPrompt includes all decks and rules", () => {
+		const prompt = buildDeckPlansPrompt([deckA, deckB, deckC]);
+		expect(prompt).toContain("3CB Rules");
+		expect(prompt).toContain("@alice.bsky.social");
+		expect(prompt).toContain("Goblin Guide");
+		expect(prompt).toContain("@bob.bsky.social");
+		expect(prompt).toContain("Grizzly Bears");
+		expect(prompt).toContain("@charlie.bsky.social");
+		expect(prompt).toContain("Island");
+		expect(prompt).toContain("2-3 sentence game plan");
+	});
+
+	it("parseDeckPlans extracts plans from LLM output", () => {
+		const output = `### @alice.bsky.social
+Three Goblin Guides attack for 6 on T1 with haste. Wins the race against anything without instant-speed interaction. Vulnerable to blockers that come down T1 (e.g., Memnite).
+
+### @bob.bsky.social
+Three Grizzly Bears deploy on T2 for 2 mana each. Trades well in combat but loses the race to haste. Needs the opponent to stumble on mana.
+
+### @charlie.bsky.social
+Three Islands produce mana but have no payoff. Cannot win — stalemate at best if opponent also has no threats.`;
+
+		const plans = parseDeckPlans(output, [deckA, deckB, deckC]);
+		expect(plans.size).toBe(3);
+		expect(plans.get("alice.bsky.social")).toContain("Goblin Guides attack");
+		expect(plans.get("bob.bsky.social")).toContain("Grizzly Bears deploy");
+		expect(plans.get("charlie.bsky.social")).toContain("Three Islands");
+	});
+
+	it("parseDeckPlans handles missing sections gracefully", () => {
+		const output = `### @alice.bsky.social
+Goblin Guide rushes in.`;
+
+		const plans = parseDeckPlans(output, [deckA, deckB]);
+		expect(plans.size).toBe(1);
+		expect(plans.has("alice.bsky.social")).toBe(true);
+		expect(plans.has("bob.bsky.social")).toBe(false);
 	});
 });

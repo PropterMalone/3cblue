@@ -47,7 +47,7 @@ For each submission, parse the card JSON to get oracle text. Build a `DeckInfo` 
 
 Run the lookup for every pair:
 
-Use the functions from `packages/engine/src/matchup-lookup.ts` (imported via `npx tsx`):
+Use the functions from `src/matchup-lookup.ts` (imported via `npx tsx`):
 
 ```ts
 import { lookupMatchup, loadMatchupDb, getMatchupDbStats } from "./src/matchup-lookup.ts";
@@ -70,11 +70,35 @@ Use `canonicalDeckKey()` from `round-resolution-prompts.ts` to identify duplicat
 - Copy the results for the duplicate deck's matchups
 - A-vs-B (mirror match) is always a draw
 
+### 2c: Generate Deck Plans
+
+Make a single Opus call (main context, not an agent) with all unique decks' oracle text. Ask for a 2-3 sentence game plan per deck: what it's trying to do, how it wins, key card interactions, and vulnerabilities.
+
+Prompt structure:
+```
+You are analyzing decks for a Three Card Blind tournament. For each deck, write a 2-3 sentence game plan explaining: what the deck is trying to do, how it wins, key card interactions, and what beats it. Be specific about timing (which turn things happen) and mana sequencing.
+
+{for each unique deck:}
+## @{handle}: {Card1}, {Card2}, {Card3}
+{oracle text for each card}
+```
+
+Write output to `/tmp/r{N}-deck-plans.json`:
+```json
+{
+  "handle1": "This deck uses LED + Shelldock Isle to cheat Emrakul into play. LED cracks in response to Shelldock's hideaway trigger, milling cards to create a library. Vulnerable to land destruction (Wasteland) and instant-speed creature removal before the 4-mana activation.",
+  "handle2": "..."
+}
+```
+
+These plans get injected into every per-deck agent prompt (Step 3) as a `**Deck plan:**` line after each deck's card data. This prevents the most expensive class of agent error — misunderstanding what a deck does.
+
 ### Summary to show user before proceeding:
 ```
 Round N: X submissions, Y unique decks
 Historical matches found: Z (will skip LLM verdict)
 Matchups needing LLM evaluation: W
+Deck plans generated: Y
 ```
 
 ## Step 3: Spawn Per-Deck Agents
@@ -106,15 +130,17 @@ You are evaluating Three Card Blind (3CB) matchups for one deck against all oppo
 - All of Magic is legal except un-sets, ante, subgames, and wishes/sideboard cards.
 - Both players play optimally to maximize their tournament result (3 pts for win, 1 for draw, 0 for loss).
 - Coin flips and dice rolls resolve to the worst outcome for the controller.
-- If one player wins regardless of who goes first, that player wins the matchup.
-- If the result depends on who goes first (each player wins on the play), it's a draw.
-- If neither player can force a win in either direction, it's a draw.
+- If one player wins regardless of who goes first, that player wins the matchup (WW or LL).
+- If the result depends on who goes first (each player wins on the play), it's a split (WL) — not the same as a draw.
+- If neither player can force a win in either direction, it's a draw (DD).
+- Evaluate EACH DIRECTION independently: on the play and on the draw. Report per-direction verdicts.
 
 ## Your Deck (@{handle})
 {formatted cards with oracle text — name, mana cost, type line, power/toughness, oracle text}
+**Deck plan:** {deck plan from Step 2c}
 
 ## Opponents
-{for each opponent that needs LLM evaluation: formatted deck with handle, oracle text}
+{for each opponent that needs LLM evaluation: formatted deck with handle, oracle text, then **Deck plan:** line}
 
 ## Instructions
 For each opponent, evaluate the matchup assuming optimal play from both sides.
@@ -217,15 +243,17 @@ Write a temporary script `_resolve-write.ts` and run it with `npx tsx _resolve-w
 import { createDatabase, insertMatchup, updateRoundPhase } from "./src/database.ts";
 const db = createDatabase("data/3cblue.db");
 // For each matchup:
-// insertMatchup(db, roundId, player0Did, player1Did, outcome, unresolvedReason, statsJson, llmReasoning, narrative)
+// insertMatchup(db, roundId, player0Did, player1Did, outcome, unresolvedReason, statsJson, llmReasoning, narrative, onPlayVerdict, onDrawVerdict)
 //   outcome: "player0_wins" | "player1_wins" | "draw"
 //   unresolvedReason: null (or string if unresolved)
 //   statsJson: "{}" (unused for LLM-evaluated matchups)
 //   llmReasoning: string | null — full agent output for audit
 //   narrative: string | null — JSON.stringify({ onPlayVerdict, onDrawVerdict, playNarrative, drawNarrative })
-insertMatchup(db, roundId, player0Did, player1Did, outcome, null, "{}", reasoning, narrative);
-// After all matchups written:
-updateRoundPhase(db, roundId, "complete");
+//   onPlayVerdict: "W" | "L" | "D" from p0's perspective — MUST be set for R5+
+//   onDrawVerdict: "W" | "L" | "D" from p0's perspective — MUST be set for R5+
+insertMatchup(db, roundId, player0Did, player1Did, outcome, null, "{}", reasoning, narrative, onPlayVerdict, onDrawVerdict);
+// After all matchups written — stay in resolution, NOT complete:
+updateRoundPhase(db, roundId, "resolution");
 ```
 
 Delete the script after running.
@@ -240,7 +268,7 @@ The `narrative` column stores JSON with this structure:
 }
 ```
 
-Use `JSON.stringify()` to serialize before inserting.
+Use `JSON.stringify()` to serialize before inserting. **CRITICAL**: The `narrative` column MUST be populated — R4 skipped this and caused single-char display fallback on the dashboard. The `on_play_verdict` and `on_draw_verdict` columns MUST also be set.
 
 For agreed matchups:
 - `outcome`: the agreed verdict
@@ -257,17 +285,55 @@ For user-resolved disagreements:
 - `reasoning`: both agents' full output
 - `narrative`: JSON — ask the user which narrative to use, or write a brief one
 
-## Step 7: Confirm
+### Step 6b: Post-Write Validation
 
-Tell the user:
+After writing all matchups, verify consistency:
+1. Count matchups in DB matches expected count (N*(N-1)/2)
+2. No `on_play_verdict` or `on_draw_verdict` is NULL
+3. No `narrative` is NULL
+4. Spot-check: for a sample of matchups, verify the `notes`/`reasoning` text is consistent with the stored verdicts (catches template-default bugs — 13 entries in R4 had correct analysis text but stale outcome fields)
+
+## Step 7: Preliminary Results + Community Review
+
+Generate the dashboard and push to GitHub Pages:
+```bash
+# (use the dashboard generation script from CLAUDE.md)
+git add docs/index.html && git commit -m "docs: R{N} preliminary results" && git push origin main
+```
+
+Post preliminary standings to Bluesky (with mention blast to all participants).
+
+**The round stays in `resolution` phase.** Tell the user:
 - How many matchups were resolved
 - Breakdown: historical / agreed / disagreements
 - How many LLM calls were saved by historical lookup + dedup
-- The round is now in `complete` phase
-- Remind them to run `node dist/main.js post-results` or offer to do it
+- The round is in `resolution` phase — awaiting community corrections
+- Players should review the dashboard and flag errors
+
+## Step 8: Apply Corrections
+
+As players flag errors:
+1. Record corrections in `data/round-updates/r{N}-updates.jsonl`
+2. Apply with `node dist/main.js apply-updates {N}` (use `--dry-run` first)
+3. Regenerate dashboard after each batch of corrections
+4. Push updated dashboard to GitHub Pages
+
+## Step 9: Finalize
+
+When the correction window closes:
+```ts
+import { createDatabase } from "./src/database.ts";
+import { finalizeRound } from "./src/round-lifecycle.ts";
+const db = createDatabase("data/3cblue.db");
+const result = finalizeRound(db, roundId);
+console.log(`Winners: ${result.winnersFound}, Cards banned: ${result.cardsBanned.join(", ")}`);
+```
+
+Post final standings and regenerate dashboard one last time.
 
 ## Notes
 - **Multi-session design**: Steps 1-3 (load data, build prompts, run agents) and Steps 4-7 (crosscheck, present, write DB) are independent sessions connected by `/tmp/r{N}-*` files. Always prefer splitting across sessions over risking context overflow.
+- **R4 lesson**: Skipping per-deck agents and crosscheck led to 56 corrections. Always use agents with crosscheck for R5+.
 - Card images: Scryfall provides card images at `https://api.scryfall.com/cards/named?exact={name}&format=image`
 - Narratives are stored in the `narrative` column and rendered to images for Bluesky posts
 - Full LLM reasoning goes in `llm_reasoning` for audit
