@@ -144,6 +144,13 @@ export class ThreeCBlueBot {
 			);
 			return;
 		}
+		if (isRoundPastDeadline(round)) {
+			await this.dm.sendDm(
+				senderDid,
+				`round ${round.id} deadline has passed — submissions are closed.`,
+			);
+			return;
+		}
 
 		const cardNames = parseCardNames(text);
 		if (cardNames.length !== 3) {
@@ -211,6 +218,16 @@ export class ThreeCBlueBot {
 		}
 
 		const matchupId = Number.parseInt(match[1], 10);
+
+		// Validate matchup exists
+		const existing = this.db
+			.prepare("SELECT id FROM matchups WHERE id = ?")
+			.get(matchupId);
+		if (!existing) {
+			await this.dm.sendDm(senderDid, `matchup ${matchupId} not found.`);
+			return;
+		}
+
 		const resolution = match[2].toLowerCase().replace(" ", "_");
 		// Normalize: "p0_wins" → "player0_wins"
 		const normalized = resolution
