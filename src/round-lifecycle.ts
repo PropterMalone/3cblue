@@ -1,8 +1,6 @@
 // pattern: Imperative Shell
 
 // Round lifecycle: orchestrates the phases of a 3CB round.
-// Each function advances the round to the next phase and returns
-// data needed for the bot to post/DM.
 
 import type Database from "better-sqlite3";
 import type { Card } from "./card-types.js";
@@ -60,7 +58,8 @@ export function isRoundPastDeadline(round: DbRound): boolean {
 	return new Date() >= new Date(round.submissionDeadline);
 }
 
-/** Close submissions, advance to resolution phase, and run all matchups. */
+/** LEGACY: Not used in production since R1. The /resolve-round skill handles
+ *  actual resolution via per-deck agents with crosscheck. */
 export async function resolveRound(
 	db: Database.Database,
 	evaluator: MatchupEvaluator = defaultEvaluateMatchup,
@@ -76,12 +75,18 @@ export async function resolveRound(
 		return { error: "need at least 2 submissions to resolve" };
 	}
 
+	const existing = getMatchupsForRound(db, round.id);
+	if (existing.length > 0) {
+		return {
+			error: `round ${round.id} already has ${existing.length} matchups — delete them first to re-resolve`,
+		};
+	}
+
 	updateRoundPhase(db, round.id, "resolution");
 
 	const matchups: MatchupResultWithPlayers[] = [];
 	let unresolvedCount = 0;
 
-	// One LLM evaluation per pair — the prompt covers both play/draw directions
 	for (let i = 0; i < submissions.length; i++) {
 		for (let j = i + 1; j < submissions.length; j++) {
 			const sub0 = submissions[i] as DbSubmission;
@@ -98,7 +103,6 @@ export async function resolveRound(
 				outcome = verdict.outcome;
 				reasoning = verdict.reasoning;
 			} catch (err) {
-				// LLM failure degrades to unresolved — falls through to judge path
 				outcome = "unresolved";
 				reasoning = "";
 				unresolvedReason = `llm evaluation failed: ${err instanceof Error ? err.message : String(err)}`;
@@ -125,7 +129,6 @@ export async function resolveRound(
 		}
 	}
 
-	// Advance phase based on whether we need judging
 	if (unresolvedCount > 0) {
 		updateRoundPhase(db, round.id, "judging");
 	} else {
@@ -137,7 +140,6 @@ export async function resolveRound(
 
 /**
  * Extract per-direction verdicts from a matchup.
- * Uses narrative JSON if available, otherwise derives from overall outcome.
  * Returns [onPlay, onDraw] verdicts from player0's perspective.
  */
 function getDirectionVerdicts(m: DbMatchup): [string, string] {
@@ -145,7 +147,10 @@ function getDirectionVerdicts(m: DbMatchup): [string, string] {
 	if (m.onPlayVerdict && m.onDrawVerdict) {
 		const verdictToOutcome = (v: string) =>
 			v === "W" ? "player0_wins" : v === "L" ? "player1_wins" : "draw";
-		return [verdictToOutcome(m.onPlayVerdict), verdictToOutcome(m.onDrawVerdict)];
+		return [
+			verdictToOutcome(m.onPlayVerdict),
+			verdictToOutcome(m.onDrawVerdict),
+		];
 	}
 	// Narrative JSON (R2-R3 format)
 	try {
@@ -158,8 +163,23 @@ function getDirectionVerdicts(m: DbMatchup): [string, string] {
 	} catch {
 		// malformed narrative, fall through
 	}
-	// Legacy fallback: treat overall as both directions
+	// Legacy fallback: try to parse combined codes (WL, WD, etc.)
 	const effectiveOutcome = m.judgeResolution ?? m.outcome;
+	const combinedMap: Record<string, [string, string]> = {
+		WW: ["player0_wins", "player0_wins"],
+		WL: ["player0_wins", "player1_wins"],
+		WD: ["player0_wins", "draw"],
+		DD: ["draw", "draw"],
+		DL: ["draw", "player1_wins"],
+		LL: ["player1_wins", "player1_wins"],
+		LW: ["player1_wins", "player0_wins"],
+		DW: ["draw", "player0_wins"],
+		LD: ["player1_wins", "draw"],
+	};
+	if (combinedMap[effectiveOutcome]) {
+		return combinedMap[effectiveOutcome];
+	}
+	// Single-outcome fallback: apply to both directions
 	return [effectiveOutcome, effectiveOutcome];
 }
 
@@ -196,7 +216,6 @@ export function computeStandings(
 			continue;
 		}
 
-		// Per-direction scoring: 3/win, 1/draw, 0/loss per direction
 		const directions = getDirectionVerdicts(m);
 		for (const dir of directions) {
 			if (dir === "player0_wins") {
@@ -241,7 +260,6 @@ export function finalizeRound(
 	const round = getRound(db, roundId);
 	if (!round) return { winnersFound: 0, cardsBanned: [] };
 
-	// Transition phase if not already complete
 	if (round.phase !== "complete") {
 		updateRoundPhase(db, roundId, "complete");
 	}
@@ -292,7 +310,6 @@ export function computeLeaderboard(db: Database.Database): LeaderboardEntry[] {
 		});
 	}
 
-	// Count rounds played per player from submissions
 	const roundsPerPlayer = new Map<string, Set<number>>();
 	for (const did of playerDids) {
 		roundsPerPlayer.set(did, new Set());
@@ -314,7 +331,6 @@ export function computeLeaderboard(db: Database.Database): LeaderboardEntry[] {
 		const effectiveOutcome = m.judgeResolution ?? m.outcome;
 		if (effectiveOutcome === "unresolved") continue;
 
-		// Per-direction scoring: 3/win, 1/draw, 0/loss per direction
 		const directions = getDirectionVerdicts(m);
 		for (const dir of directions) {
 			if (dir === "player0_wins") {

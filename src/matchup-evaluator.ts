@@ -1,10 +1,11 @@
 // pattern: Imperative Shell
+// STATUS: LEGACY — not used in actual resolution since R1.
+// The agent-based resolution pipeline (/resolve-round skill) replaced this.
+// Kept for: parseVerdict() and formatDeckForPrompt() utility functions,
+// and as the default evaluator for resolveRound() in round-lifecycle.ts.
 
-// Evaluates 3CB matchups by sending deck oracle text + rules to Claude API.
-// Returns a structured verdict (win/loss/draw) with reasoning.
-
-import type { Card } from "./card-types.js";
 import Anthropic from "@anthropic-ai/sdk";
+import type { Card } from "./card-types.js";
 
 export interface LlmMatchupVerdict {
 	outcome: "player0_wins" | "player1_wins" | "draw";
@@ -26,9 +27,10 @@ const SYSTEM_PROMPT = `You are judging a Three Card Blind (3CB) Magic: The Gathe
 ## Your Task
 Determine the overall matchup result assuming optimal play from both sides.
 Consider both "Player 0 goes first" and "Player 1 goes first" scenarios.
-If one player wins regardless of who goes first, that player wins the matchup.
-If the result depends on who goes first (each player wins their on-the-play game), it's a draw.
-If neither player can force a win in either direction, it's a draw.
+If one player wins regardless of who goes first, that player wins the matchup (WW or LL).
+If the result depends on who goes first (each player wins on the play), it's a split (WL) — not the same as a draw.
+If neither player can force a win in either direction, it's a draw (DD).
+Evaluate EACH DIRECTION independently.
 
 Think step by step about mana sequencing, interaction, and combat math.
 On the FINAL line of your response write exactly one of:
