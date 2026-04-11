@@ -1,11 +1,11 @@
 // pattern: Functional Core
 
 // Converts Scryfall API response data into our internal Card type.
-// Pure function — no I/O.
+// For double-faced cards, uses the front face.
 
 import type { Card, CardType, Color } from "./card-types.js";
 import { parseOracleText } from "./oracle-parser.js";
-import type { ScryfallCard, ScryfallCardFace } from "./scryfall-types.js";
+import type { ScryfallCard } from "./scryfall-types.js";
 
 const TYPE_KEYWORDS: CardType[] = [
 	"creature",
@@ -21,7 +21,6 @@ const TYPE_KEYWORDS: CardType[] = [
 const SUPERTYPES = ["legendary", "basic", "snow", "world"];
 
 export function scryfallToCard(raw: ScryfallCard): Card {
-	// For double-faced cards, use the front face
 	const face = raw.card_faces?.[0];
 	const oracleText = raw.oracle_text ?? face?.oracle_text ?? "";
 	const typeLine = raw.type_line ?? face?.type_line ?? "";
@@ -76,8 +75,7 @@ function parseTypeLine(typeLine: string): {
 	return { types, supertypes, subtypes };
 }
 
-/** Parse power/toughness strings like "3", "*", "1+*" into numbers.
- *  Variable stats (*, X) get 0 — the engine will need to handle these specially. */
+/** Variable stats (*, X) get 0 — the evaluator handles these contextually */
 function parseNumericStat(stat: string): number {
 	const n = Number.parseInt(stat, 10);
 	return Number.isNaN(n) ? 0 : n;

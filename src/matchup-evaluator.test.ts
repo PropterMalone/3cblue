@@ -1,6 +1,5 @@
-// pattern: Functional Core
-import type { Card } from "./card-types.js";
 import { describe, expect, it } from "vitest";
+import type { Card } from "./card-types.js";
 import { formatDeckForPrompt, parseVerdict } from "./matchup-evaluator.js";
 
 describe("parseVerdict", () => {

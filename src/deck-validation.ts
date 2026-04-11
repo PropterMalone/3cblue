@@ -5,8 +5,8 @@
 
 import { type BanCheckResult, checkDeckBans } from "./ban-list.js";
 import type { Card } from "./card-types.js";
-import { scryfallToCard } from "./scryfall-to-card.js";
 import { type CardLookupResult, lookupCards } from "./scryfall-client.js";
+import { scryfallToCard } from "./scryfall-to-card.js";
 
 export interface DeckValidationSuccess {
 	ok: true;
@@ -47,10 +47,8 @@ export async function validateDeck(
 		};
 	}
 
-	// Look up all cards from Scryfall
 	const lookupResults = await lookupCards(cardNames);
 
-	// Check for lookup failures
 	const cards: Card[] = [];
 	for (let i = 0; i < lookupResults.length; i++) {
 		const result = lookupResults[i] as CardLookupResult;
@@ -65,7 +63,6 @@ export async function validateDeck(
 		return { ok: false, errors };
 	}
 
-	// Check format bans
 	const banResults = checkDeckBans(
 		cards,
 		lookupResults
@@ -83,7 +80,6 @@ export async function validateDeck(
 		return { ok: false, errors };
 	}
 
-	// Check winner bans
 	if (isWinnerBanned) {
 		for (const card of cards) {
 			if (isWinnerBanned(card.name)) {

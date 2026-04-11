@@ -1,4 +1,3 @@
-// pattern: Functional Core
 import { describe, expect, it } from "vitest";
 import { scryfallToCard } from "./scryfall-to-card.js";
 import type { ScryfallCard } from "./scryfall-types.js";
@@ -88,7 +87,6 @@ describe("scryfallToCard", () => {
 		);
 		expect(card.types).toEqual(["planeswalker"]);
 		expect(card.loyalty).toBe(3);
-		// Planeswalker abilities should be unresolved for now
 		expect(card.abilities.every((a) => a.kind === "unresolved")).toBe(true);
 	});
 
@@ -120,7 +118,6 @@ describe("scryfallToCard", () => {
 				},
 			],
 		});
-		// Should use front face data
 		expect(card.name).toBe("Delver of Secrets // Insectile Aberration");
 		expect(card.power).toBe(1);
 		expect(card.toughness).toBe(1);

@@ -20,7 +20,6 @@ export interface ScryfallCard {
 	};
 	readonly legalities?: Record<string, string>;
 	readonly layout?: string;
-	// For double-faced / split / adventure cards
 	readonly card_faces?: ScryfallCardFace[];
 	readonly set_type?: string;
 }

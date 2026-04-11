@@ -1,4 +1,3 @@
-// pattern: Functional Core
 import { describe, expect, it } from "vitest";
 import {
 	type MatchupNarrative,

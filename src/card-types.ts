@@ -1,9 +1,9 @@
 // pattern: Functional Core
 
-// Structured representation of an MTG card for 3CB simulation.
+// Structured representation of an MTG card for 3CB evaluation.
 // Parsed from Scryfall API data. Oracle text gets decomposed into
-// abilities the engine understands, with unparseable text preserved
-// as Unresolved for human judging.
+// abilities the parser understands, with unparseable text preserved
+// as Unresolved for human/LLM judging.
 
 export type Color = "W" | "U" | "B" | "R" | "G";
 
@@ -48,9 +48,7 @@ export type AbilityKind =
 export interface KeywordAbility {
 	readonly kind: "keyword";
 	readonly keyword: EvergreenKeyword;
-	// For protection: "from red", "from creatures", etc.
 	readonly qualifier?: string;
-	// For ward: the cost (e.g., "{2}")
 	readonly cost?: string;
 }
 
@@ -58,7 +56,6 @@ export interface StaticPtModifier {
 	readonly kind: "static_pt_modifier";
 	readonly power: number;
 	readonly toughness: number;
-	// What it applies to: "self" for auras/equipment, "other_creatures_you_control" for anthems
 	readonly target: string;
 	readonly condition?: string;
 }
@@ -96,7 +93,6 @@ export interface ActivatedTapLifeGain {
 export interface UnresolvedAbility {
 	readonly kind: "unresolved";
 	readonly oracleText: string;
-	// Why the parser couldn't handle it
 	readonly reason: string;
 }
 
@@ -116,23 +112,18 @@ export interface Card {
 	readonly cmc: number;
 	readonly colors: Color[];
 	readonly types: CardType[];
-	// Supertypes like "legendary", "basic"
 	readonly supertypes: string[];
-	// Subtypes like "Human", "Warrior", "Aura", "Equipment"
 	readonly subtypes: string[];
 	readonly oracleText: string;
-	// Only for creatures (or cards that become creatures)
 	readonly power?: number;
 	readonly toughness?: number;
-	// Only for planeswalkers
 	readonly loyalty?: number;
 	readonly abilities: Ability[];
 	readonly scryfallId: string;
-	// URI for card image
 	readonly imageUri?: string;
 }
 
-/** True if the card has any abilities the engine can't simulate */
+/** True if the card has any abilities the parser can't handle */
 export function hasUnresolvedAbilities(card: Card): boolean {
 	return card.abilities.some((a) => a.kind === "unresolved");
 }

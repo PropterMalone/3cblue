@@ -11,25 +11,21 @@ import sharp from "sharp";
 const SCRYFALL_IMAGE_URL =
 	"https://api.scryfall.com/cards/named?format=image&version=normal&exact=";
 
-// Card image dimensions (Scryfall normal is 488x680)
 const CARD_WIDTH = 244;
 const CARD_HEIGHT = 340;
 const CARD_GAP = 12;
 const DECK_PADDING = 16;
 const LABEL_HEIGHT = 40;
 
-// Narrative card dimensions
 const NARRATIVE_WIDTH = 750;
 const NARRATIVE_PADDING = 32;
 const LINE_HEIGHT = 24;
 const HEADING_LINE_HEIGHT = 32;
 
-/** Fetch a card image from Scryfall and resize it. */
 async function fetchCardImage(cardName: string): Promise<Buffer> {
 	const url = `${SCRYFALL_IMAGE_URL}${encodeURIComponent(cardName)}`;
 	const response = await fetch(url);
 	if (!response.ok) {
-		// Return a placeholder gray card
 		return sharp({
 			create: {
 				width: CARD_WIDTH,
@@ -48,18 +44,15 @@ async function fetchCardImage(cardName: string): Promise<Buffer> {
 		.toBuffer();
 }
 
-/** Render a player's 3-card deck as a single image with handle label. */
 export async function renderDeckImage(
 	handle: string,
 	cardNames: readonly string[],
 ): Promise<Buffer> {
-	// Fetch all card images in parallel
 	const cardImages = await Promise.all(cardNames.map(fetchCardImage));
 
 	const totalWidth = DECK_PADDING * 2 + CARD_WIDTH * 3 + CARD_GAP * 2;
 	const totalHeight = DECK_PADDING + LABEL_HEIGHT + CARD_HEIGHT + DECK_PADDING;
 
-	// SVG label
 	const labelSvg = `<svg width="${totalWidth}" height="${LABEL_HEIGHT}">
 		<text x="${totalWidth / 2}" y="${LABEL_HEIGHT - 8}" text-anchor="middle"
 			font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="bold"
@@ -67,11 +60,9 @@ export async function renderDeckImage(
 	</svg>`;
 
 	const composites: sharp.OverlayOptions[] = [
-		// Handle label
 		{ input: Buffer.from(labelSvg), top: DECK_PADDING, left: 0 },
 	];
 
-	// Card images
 	for (let i = 0; i < cardImages.length; i++) {
 		const img = cardImages[i];
 		if (!img) continue;
@@ -98,14 +89,13 @@ export async function renderDeckImage(
 export interface NarrativeCardInput {
 	handle0: string;
 	handle1: string;
-	verdict: string; // "Player 0 wins" / "Player 1 wins" / "Draw"
+	verdict: string;
 	onPlayVerdict: string;
 	onDrawVerdict: string;
 	playNarrative: string;
 	drawNarrative: string;
 }
 
-/** Render narrative text as a clean card image. */
 export async function renderNarrativeImage(
 	input: NarrativeCardInput,
 ): Promise<Buffer> {
@@ -123,7 +113,7 @@ export async function renderNarrativeImage(
 	const totalHeight = Math.max(textHeight, 200);
 
 	const svgLines: string[] = [];
-	let y = NARRATIVE_PADDING + 20; // start below top padding
+	let y = NARRATIVE_PADDING + 20;
 
 	for (const line of lines) {
 		if (line.gap) y += line.gap;
@@ -133,7 +123,6 @@ export async function renderNarrativeImage(
 		const fill = line.dim ? "#888888" : line.accent ? "#e8c44a" : "#e0e0e0";
 		const lineH = line.heading ? HEADING_LINE_HEIGHT : LINE_HEIGHT;
 
-		// Word-wrap long lines
 		const wrapped = wordWrap(line.text, line.small ? 70 : 55);
 		for (const wl of wrapped) {
 			svgLines.push(
@@ -159,26 +148,19 @@ interface NarrativeLine {
 	dim?: boolean;
 	small?: boolean;
 	accent?: boolean;
-	gap?: number; // extra vertical space before this line
+	gap?: number;
 }
 
 function buildNarrativeLines(input: NarrativeCardInput): NarrativeLine[] {
 	const lines: NarrativeLine[] = [];
 
-	// Title
 	lines.push({
 		text: `@${input.handle0} vs @${input.handle1}`,
 		heading: true,
 	});
 
-	// Overall verdict
-	lines.push({
-		text: input.verdict,
-		accent: true,
-		gap: 4,
-	});
+	lines.push({ text: input.verdict, accent: true, gap: 4 });
 
-	// On the play
 	lines.push({
 		text: `On the play: ${input.onPlayVerdict}`,
 		dim: true,
@@ -188,7 +170,6 @@ function buildNarrativeLines(input: NarrativeCardInput): NarrativeLine[] {
 		lines.push({ text: input.playNarrative, small: true });
 	}
 
-	// On the draw
 	lines.push({
 		text: `On the draw: ${input.onDrawVerdict}`,
 		dim: true,
@@ -227,7 +208,6 @@ function escapeXml(text: string): string {
 		.replace(/'/g, "&apos;");
 }
 
-/** Render all images for a single matchup. Returns [deck0, deck1, narrative] buffers. */
 export async function renderMatchupImages(opts: {
 	handle0: string;
 	handle1: string;

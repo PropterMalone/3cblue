@@ -1,8 +1,8 @@
 // pattern: Functional Core
 
 // Structural ban list for 3CB. These cards break the format itself,
-// not cards that are merely powerful. Metagame bans are a separate concern
-// (managed per-league or per-round by the judge).
+// not cards that are merely powerful. Winner bans are a separate concern
+// (managed per-round via the banned_cards table).
 
 import type { Card } from "./card-types.js";
 import type { ScryfallCard } from "./scryfall-types.js";
@@ -48,7 +48,6 @@ export function checkBan(
 	card: Card,
 	scryfallData?: ScryfallCard,
 ): BanCheckResult {
-	// Name ban
 	if (BANNED_NAMES.has(card.name)) {
 		return {
 			banned: true,
@@ -56,7 +55,6 @@ export function checkBan(
 		};
 	}
 
-	// Un-set / joke set ban
 	if (scryfallData?.set_type && BANNED_SET_TYPES.has(scryfallData.set_type)) {
 		return {
 			banned: true,
@@ -64,7 +62,6 @@ export function checkBan(
 		};
 	}
 
-	// Oracle text pattern bans
 	for (const { pattern, reason } of BANNED_ORACLE_PATTERNS) {
 		if (pattern.test(card.oracleText)) {
 			return { banned: true, reason: `${card.name}: ${reason}` };

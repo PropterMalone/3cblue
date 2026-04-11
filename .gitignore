@@ -24,3 +24,22 @@ packages/*/vitest.config.js
 packages/*/vitest.config.js.map
 packages/*/vitest.config.d.ts
 packages/*/vitest.config.d.ts.map
+entities.json
+mempalace.yaml
+
+# Ad-hoc/debug scripts and outputs (one-off work, not repo content)
+_*.ts
+_*.mts
+_*.json
+_*.txt
+_*.csv
+_*.html
+_*.md
+_agent_outputs/
+_prompts/
+data/r*-outputs/
+data/round-outputs/
+
+# Logs
+*.log
+data/*.log

@@ -7,8 +7,8 @@
 import { readFileSync } from "node:fs";
 
 interface MatchupEntry {
-	score: number; // 0-6 from deck0's perspective (deck0 is the lex-smaller key)
-	sources: string[]; // e.g. ["R1A", "R45B"]
+	score: number;
+	sources: string[];
 }
 
 interface MatchupDb {
@@ -21,7 +21,7 @@ interface MatchupDb {
 export interface LookupResult {
 	found: true;
 	outcome: "player0_wins" | "player1_wins" | "draw";
-	score: number; // raw score from deck0's perspective
+	score: number;
 	sources: string[];
 }
 
@@ -31,7 +31,6 @@ export interface LookupMiss {
 
 let cachedDb: MatchupDb | null = null;
 
-/** Normalize a deck to canonical key: sorted lowercase card names joined by | */
 function deckKey(cards: readonly string[]): string {
 	return cards
 		.map((c) => c.trim().toLowerCase())
@@ -39,7 +38,6 @@ function deckKey(cards: readonly string[]): string {
 		.join("|");
 }
 
-/** Load the matchup database from disk (cached after first load) */
 export function loadMatchupDb(
 	path = "./data/metashape-matchups.json",
 ): MatchupDb {
@@ -49,22 +47,14 @@ export function loadMatchupDb(
 	return cachedDb;
 }
 
-/** Clear the cached DB (for testing) */
 export function clearMatchupDbCache(): void {
 	cachedDb = null;
 }
 
 /**
  * Look up a matchup result from historical data.
- *
- * Score semantics (double round-robin, both play/draw directions):
- *   6 = deck0 wins both directions → player0_wins
- *   0 = deck0 loses both directions → player1_wins
- *   3 = split (each wins on the play) → draw
- *   2 = draw both directions → draw
- *   1, 4, 5 = partial/contested → treat as draw (conservative)
- *
- * Cards are order-independent — {Bolt, Snap, Delver} == {Delver, Bolt, Snap}
+ * Score 6 = deck0 wins both, 0 = deck0 loses both, 1-5 = draw (conservative).
+ * Cards are order-independent.
  */
 export function lookupMatchup(
 	deck0Cards: readonly string[],
@@ -81,7 +71,6 @@ export function lookupMatchup(
 	const entry = matchupDb.matchups[key];
 	if (!entry) return { found: false };
 
-	// Normalize score to deck0's perspective
 	const score = swapped ? 6 - entry.score : entry.score;
 
 	let outcome: "player0_wins" | "player1_wins" | "draw";
@@ -90,14 +79,12 @@ export function lookupMatchup(
 	} else if (score === 0) {
 		outcome = "player1_wins";
 	} else {
-		// 1, 2, 3, 4, 5 all map to draw (conservative — split, draw, or contested)
 		outcome = "draw";
 	}
 
 	return { found: true, outcome, score, sources: entry.sources };
 }
 
-/** Stats about the loaded database */
 export function getMatchupDbStats(db?: MatchupDb): {
 	uniquePairs: number;
 	totalMatchups: number;

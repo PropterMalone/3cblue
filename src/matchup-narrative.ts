@@ -6,7 +6,7 @@
 export interface MatchupNarrative {
 	onPlayVerdict: string; // "player0_wins" | "player1_wins" | "draw"
 	onDrawVerdict: string;
-	playNarrative: string; // 3-5 sentence play-by-play
+	playNarrative: string;
 	drawNarrative: string;
 }
 
@@ -25,14 +25,13 @@ export function parseNarrative(json: string): MatchupNarrative | null {
 		) {
 			return parsed as unknown as MatchupNarrative;
 		}
-		// Legacy plain-text narrative — wrap as play narrative only
 		return null;
 	} catch {
 		return null;
 	}
 }
 
-/** Format a verdict string for display. */
+/** Format a verdict string for display */
 export function verdictDisplayLabel(
 	verdict: string,
 	handle0: string,

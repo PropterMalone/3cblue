@@ -1,4 +1,3 @@
-// pattern: Functional Core
 import { afterEach, describe, expect, it } from "vitest";
 import {
 	clearMatchupDbCache,
@@ -6,7 +5,6 @@ import {
 	lookupMatchup,
 } from "./matchup-lookup.js";
 
-// Inline test DB — no file dependency
 const testDb = {
 	matchups: {
 		"black lotus|strip mine|thassa's oracle vs chalice of the void|leyline of anticipation|memnite":
@@ -63,7 +61,6 @@ describe("lookupMatchup", () => {
 	});
 
 	it("swaps deck order correctly", () => {
-		// Reverse the deck order — should invert score
 		const result = lookupMatchup(
 			["Memnite", "Chalice of the Void", "Leyline of Anticipation"],
 			["Black Lotus", "Thassa's Oracle", "Strip Mine"],

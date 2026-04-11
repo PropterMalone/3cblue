@@ -141,7 +141,6 @@ function formatOutcome(m: DbMatchup): string {
 	}
 }
 
-/** Split content into multiple posts if it exceeds the character limit. */
 function splitIntoPosts(header: string, lines: string[]): string[] {
 	const posts: string[] = [];
 	let current = header;

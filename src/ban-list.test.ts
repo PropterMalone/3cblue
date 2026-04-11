@@ -1,4 +1,3 @@
-// pattern: Functional Core
 import { describe, expect, it } from "vitest";
 import { checkBan, checkDeckBans } from "./ban-list.js";
 import type { Card } from "./card-types.js";

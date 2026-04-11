@@ -1,4 +1,3 @@
-// pattern: Imperative Shell
 import { describe, expect, it } from "vitest";
 import { parseCardNames } from "./deck-validation.js";
 

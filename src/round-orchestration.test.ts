@@ -1,4 +1,3 @@
-// pattern: Imperative Shell
 import type Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -75,13 +74,13 @@ function addTestSubmission(
 
 describe("isRoundPastDeadline", () => {
 	it("returns true when deadline is in the past", () => {
-		const roundId = createRoundWithDeadline(db, -60_000); // 1 min ago
+		const roundId = createRoundWithDeadline(db, -60_000);
 		const round = getRound(db, roundId)!;
 		expect(isRoundPastDeadline(round)).toBe(true);
 	});
 
 	it("returns false when deadline is in the future", () => {
-		const roundId = createRoundWithDeadline(db, 60_000); // 1 min from now
+		const roundId = createRoundWithDeadline(db, 60_000);
 		const round = getRound(db, roundId)!;
 		expect(isRoundPastDeadline(round)).toBe(false);
 	});
@@ -115,10 +114,8 @@ describe("deadline-triggered resolution", () => {
 		expect("matchups" in result).toBe(true);
 		if (!("matchups" in result)) return;
 
-		// 2 players → 1 pair = 1 matchup
 		expect(result.matchups).toHaveLength(1);
 
-		// Round should advance to complete
 		const resolved = getRound(db, roundId)!;
 		expect(resolved.phase).toBe("complete");
 	});
@@ -136,7 +133,6 @@ describe("deadline-triggered resolution", () => {
 		addTestSubmission(db, roundId, "did:plc:alice", "alice.bsky.social");
 		addTestSubmission(db, roundId, "did:plc:bob", "bob.bsky.social");
 
-		// Manually resolve to control outcome — set phase to resolution and insert unresolved matchup
 		updateRoundPhase(db, roundId, "resolution");
 		insertMatchup(
 			db,
@@ -157,7 +153,6 @@ describe("deadline-triggered resolution", () => {
 			"{}",
 		);
 
-		// Simulate what resolveRound does at the end: check for unresolved and set phase
 		updateRoundPhase(db, roundId, "judging");
 
 		const round = getRound(db, roundId)!;
@@ -202,7 +197,6 @@ describe("judging completion", () => {
 		upsertPlayer(db, "did:plc:alice", "alice", null);
 		upsertPlayer(db, "did:plc:bob", "bob", null);
 		upsertPlayer(db, "did:plc:charlie", "charlie", null);
-
 		upsertPlayer(db, "did:plc:judge", "judge", null);
 
 		insertMatchup(
@@ -224,7 +218,6 @@ describe("judging completion", () => {
 			"{}",
 		);
 
-		// Resolve only one
 		resolveMatchup(db, m2.id, "draw", "did:plc:judge");
 
 		expect(checkJudgingComplete(db)).toBe(false);
@@ -278,7 +271,6 @@ describe("finalizeRound", () => {
 		]);
 		updateRoundPhase(db, roundId, "resolution");
 
-		// Alice wins both directions
 		insertMatchup(
 			db,
 			roundId,
@@ -331,13 +323,11 @@ describe("finalizeRound", () => {
 			"{}",
 		);
 
-		// Call twice
 		finalizeRound(db, roundId);
 		const result = finalizeRound(db, roundId);
 
 		expect(getRound(db, roundId)!.phase).toBe("complete");
 		expect(result.cardsBanned).toHaveLength(3);
-		// INSERT OR IGNORE means no duplicates
 		expect(getWinnerBans(db)).toHaveLength(3);
 	});
 
@@ -360,7 +350,6 @@ describe("finalizeRound", () => {
 		]);
 		updateRoundPhase(db, roundId, "resolution");
 
-		// Alice beats bob, charlie beats alice, bob beats charlie — three-way tie at 3pts each
 		insertMatchup(
 			db,
 			roundId,
@@ -418,7 +407,6 @@ describe("leaderboard", () => {
 	});
 
 	it("aggregates stats across multiple completed rounds", () => {
-		// Round 1: alice beats bob
 		const r1 = createRoundWithDeadline(db, -60_000);
 		addTestSubmission(db, r1, "did:plc:alice", "alice");
 		addTestSubmission(db, r1, "did:plc:bob", "bob");
@@ -442,7 +430,6 @@ describe("leaderboard", () => {
 			"{}",
 		);
 
-		// Round 2: bob beats charlie, alice draws charlie
 		const r2 = createRoundWithDeadline(db, -60_000);
 		addTestSubmission(db, r2, "did:plc:bob", "bob");
 		addTestSubmission(db, r2, "did:plc:charlie", "charlie");
@@ -507,33 +494,18 @@ describe("leaderboard", () => {
 		const entries = computeLeaderboard(db);
 		expect(entries).toHaveLength(3);
 
-		// Bob: R1 lost to alice (0+0) + won as p0 (3), R2 beat charlie (3+3) + beat alice (3+3) = 12
-		// Wait, let me trace: R1: alice p0 wins (alice+3, bob loss), bob p0 wins (bob+3, alice loss)
-		// R2: bob p0 wins charlie (bob+3, charlie loss), charlie p1 wins bob (bob+3, charlie loss)... wait
-		// R2: bob v charlie: bob p0 wins → bob+3, charlie loss
-		// R2: charlie v bob: p1 wins → bob+3, charlie loss
-		// R2: alice v charlie: draw → alice+1, charlie+1
-		// R2: charlie v alice: draw → charlie+1, alice+1
-		// R2: alice v bob: p1 wins → bob+3, alice loss
-		// R2: bob v alice: p0 wins → bob+3, alice loss
-
-		// Per-direction scoring: legacy matchups without narrative count each direction
-		// Bob total: R1(0+6) + R2(6+6+6+6) = 30
 		const bob = entries.find((e) => e.playerDid === "did:plc:bob")!;
 		expect(bob.points).toBe(30);
 		expect(bob.roundsPlayed).toBe(2);
 
-		// Alice total: R1(6+0) + R2(2+2+0+0) = 10
 		const alice = entries.find((e) => e.playerDid === "did:plc:alice")!;
 		expect(alice.points).toBe(10);
 		expect(alice.roundsPlayed).toBe(2);
 
-		// Charlie total: R2(0+0+2+2+0+0) = 4
 		const charlie = entries.find((e) => e.playerDid === "did:plc:charlie")!;
 		expect(charlie.points).toBe(4);
 		expect(charlie.roundsPlayed).toBe(1);
 
-		// Sorted by points descending
 		expect(entries[0]?.playerDid).toBe("did:plc:bob");
 		expect(entries[1]?.playerDid).toBe("did:plc:alice");
 		expect(entries[2]?.playerDid).toBe("did:plc:charlie");
@@ -543,7 +515,6 @@ describe("leaderboard", () => {
 		const r1 = createRoundWithDeadline(db, -60_000);
 		addTestSubmission(db, r1, "did:plc:alice", "alice");
 		addTestSubmission(db, r1, "did:plc:bob", "bob");
-		// Still in submission phase
 		insertMatchup(
 			db,
 			r1,
@@ -565,7 +536,6 @@ describe("leaderboard", () => {
 		upsertPlayer(db, "did:plc:judge", "judge", null);
 		updateRoundPhase(db, r1, "complete");
 
-		// Engine said unresolved, judge said alice wins
 		const m = insertMatchup(
 			db,
 			r1,
@@ -580,7 +550,6 @@ describe("leaderboard", () => {
 
 		const entries = computeLeaderboard(db);
 		const alice = entries.find((e) => e.playerDid === "did:plc:alice")!;
-		// Per-direction: judge override alice wins (6) + draw (2) = 8
 		expect(alice.points).toBe(8);
 		expect(alice.wins).toBe(2);
 		expect(alice.draws).toBe(2);

@@ -51,49 +51,38 @@ export function parseOracleText(oracleText: string): Ability[] {
 }
 
 function parseLine(line: string): Ability[] {
-	// Try keyword line first (e.g., "Flying, first strike" or just "Flying")
 	const keywordResult = tryParseKeywordLine(line);
 	if (keywordResult) return keywordResult;
 
-	// Try ward with cost
 	const wardResult = tryParseWard(line);
 	if (wardResult) return [wardResult];
 
-	// Try protection
 	const protectionResult = tryParseProtection(line);
 	if (protectionResult) return [protectionResult];
 
-	// Try ETB damage
 	const etbDamageResult = tryParseEtbDamage(line);
 	if (etbDamageResult) return [etbDamageResult];
 
-	// Try ETB life gain
 	const etbLifeGainResult = tryParseEtbLifeGain(line);
 	if (etbLifeGainResult) return [etbLifeGainResult];
 
-	// Try ETB create token
 	const etbTokenResult = tryParseEtbCreateToken(line);
 	if (etbTokenResult) return [etbTokenResult];
 
-	// Try activated tap: damage
 	const tapDamageResult = tryParseTapDamage(line);
 	if (tapDamageResult) return [tapDamageResult];
 
-	// Try activated tap: life gain
 	const tapLifeGainResult = tryParseTapLifeGain(line);
 	if (tapLifeGainResult) return [tapLifeGainResult];
 
-	// Try static P/T modifier
 	const ptModResult = tryParseStaticPtModifier(line);
 	if (ptModResult) return [ptModResult];
 
-	// Can't parse — emit Unresolved
 	return [makeUnresolved(line, "no matching parser rule")];
 }
 
 function tryParseKeywordLine(line: string): KeywordAbility[] | null {
 	const lower = line.toLowerCase();
-	// Keyword lines are comma-separated keywords, optionally with reminder text in parens
 	const withoutReminder = lower.replace(/\([^)]*\)/g, "").trim();
 	const parts = withoutReminder.split(",").map((p) => p.trim());
 
@@ -101,7 +90,7 @@ function tryParseKeywordLine(line: string): KeywordAbility[] | null {
 	for (const part of parts) {
 		if (!part) continue;
 		const keyword = KEYWORD_MAP[part];
-		if (!keyword) return null; // If any part isn't a keyword, this isn't a keyword line
+		if (!keyword) return null;
 		keywords.push({ kind: "keyword", keyword });
 	}
 
@@ -121,7 +110,6 @@ function tryParseProtection(line: string): KeywordAbility | null {
 }
 
 function tryParseEtbDamage(line: string): EtbDamage | null {
-	// "When CARDNAME enters the battlefield, it deals N damage to any target/target creature/target player"
 	const match = line.match(
 		/when .+ enters (?:the battlefield)?,? (?:it )?deals (\d+) damage to (any target|target creature|target player|target opponent|each opponent)/i,
 	);
@@ -147,8 +135,6 @@ function tryParseEtbLifeGain(line: string): EtbLifeGain | null {
 }
 
 function tryParseEtbCreateToken(line: string): EtbCreateToken | null {
-	// "When CARDNAME enters the battlefield, create a 1/1 white Soldier creature token"
-	// "When CARDNAME enters the battlefield, create two 1/1 white Soldier creature tokens"
 	const match = line.match(
 		/when .+ enters (?:the battlefield)?,? create (?:a |an |(\w+) )?(\d+)\/(\d+) .+? (?:creature )?tokens?/i,
 	);
@@ -157,12 +143,10 @@ function tryParseEtbCreateToken(line: string): EtbCreateToken | null {
 	const count = countWord ? (wordToNumber(countWord) ?? 1) : 1;
 	const power = Number.parseInt(match[2] ?? "0", 10);
 	const toughness = Number.parseInt(match[3] ?? "0", 10);
-	// Could parse token keywords from the text but keeping simple for now
 	return { kind: "etb_create_token", count, power, toughness, keywords: [] };
 }
 
 function tryParseTapDamage(line: string): ActivatedTapDamage | null {
-	// "{T}: CARDNAME deals N damage to any target"
 	const match = line.match(
 		/\{T\}.*?:.*?deals (\d+) damage to (any target|target creature|target player|target opponent)/i,
 	);
@@ -189,8 +173,6 @@ function tryParseTapLifeGain(line: string): ActivatedTapLifeGain | null {
 }
 
 function tryParseStaticPtModifier(line: string): StaticPtModifier | null {
-	// "Other creatures you control get +1/+1"
-	// "Enchanted creature gets +2/+2"
 	const match = line.match(
 		/(other creatures you control|enchanted creature|equipped creature|creatures you control) gets? ([+-]\d+)\/([+-]\d+)/i,
 	);

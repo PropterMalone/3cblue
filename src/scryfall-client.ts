@@ -37,7 +37,6 @@ export type CardLookupResult =
 	| { ok: true; card: ScryfallCard }
 	| { ok: false; error: string };
 
-// In-memory cache keyed by lowercase card name
 const cardCache = new Map<string, CardLookupResult>();
 
 /** Look up a card by exact name via Scryfall API. */
@@ -62,11 +61,10 @@ export async function lookupCard(name: string): Promise<CardLookupResult> {
 	return result;
 }
 
-/** Look up multiple cards by name. Returns all results (check each for ok/error). */
+/** Look up multiple cards by name. Sequential to respect rate limit. */
 export async function lookupCards(
 	names: readonly string[],
 ): Promise<CardLookupResult[]> {
-	// Sequential to respect rate limit
 	const results: CardLookupResult[] = [];
 	for (const name of names) {
 		results.push(await lookupCard(name));
