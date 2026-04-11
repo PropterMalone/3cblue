@@ -5,34 +5,24 @@
 // Every correction is traced to a Bluesky post or a conversation.
 // The apply function is idempotent: applied entries are skipped on re-run.
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import type Database from "better-sqlite3";
 import { applyCorrection } from "./database.js";
 
 export interface UpdateSource {
 	readonly type: "bsky" | "conversation";
-	/** Bluesky post URI (at:// format) for bsky type */
 	readonly uri?: string;
-	/** Date of conversation for conversation type */
 	readonly date?: string;
-	/** Brief context for conversation-sourced updates */
 	readonly context?: string;
 }
 
 export interface RoundUpdate {
-	/** Player handles for the matchup (order-independent) */
 	readonly matchup: [string, string];
-	/** On-play verdict from matchup[0]'s perspective: W/L/D */
 	readonly play: string;
-	/** On-draw verdict from matchup[0]'s perspective: W/L/D */
 	readonly draw: string;
-	/** Where this correction came from */
 	readonly source: UpdateSource;
-	/** Human-readable reason for the correction */
 	readonly reason: string;
-	/** Status: pending or applied */
 	status: "pending" | "applied";
-	/** ISO timestamp when applied */
 	appliedAt?: string;
 }
 
@@ -53,25 +43,26 @@ export function readUpdates(roundId: number): RoundUpdate[] {
 /** Write all updates back to the JSONL file. */
 export function writeUpdates(roundId: number, updates: RoundUpdate[]): void {
 	const path = updatesPath(roundId);
-	const content = updates.map((u) => JSON.stringify(u)).join("\n") + "\n";
+	const content = `${updates.map((u) => JSON.stringify(u)).join("\n")}\n`;
 	writeFileSync(path, content);
 }
 
 /** Append a single update to the round's JSONL file. */
 export function appendUpdate(roundId: number, update: RoundUpdate): void {
 	const path = updatesPath(roundId);
-	const line = JSON.stringify(update) + "\n";
+	const line = `${JSON.stringify(update)}\n`;
 	if (existsSync(path)) {
 		const existing = readFileSync(path, "utf-8");
-		writeFileSync(path, existing.endsWith("\n") ? existing + line : existing + "\n" + line);
+		writeFileSync(
+			path,
+			existing.endsWith("\n") ? existing + line : `${existing}\n${line}`,
+		);
 	} else {
 		writeFileSync(path, line);
 	}
 }
 
-/** Outcome string from play/draw verdicts (e.g., "WL" → "player0_wins" equivalent) */
 function verdictsToOutcome(play: string, draw: string): string {
-	// Combine into the matchup outcome format used by the DB
 	const map: Record<string, string> = { W: "W", L: "L", D: "D" };
 	return `${map[play] ?? "?"}${map[draw] ?? "?"}`;
 }
@@ -82,10 +73,7 @@ interface ApplyResult {
 	readonly errors: string[];
 }
 
-/**
- * Apply all pending updates for a round. Idempotent — skips already-applied entries.
- * Looks up matchup IDs by player handles.
- */
+/** Apply all pending updates for a round. Idempotent — skips already-applied entries. */
 export function applyUpdates(
 	db: Database.Database,
 	roundId: number,
@@ -96,20 +84,30 @@ export function applyUpdates(
 	let skipped = 0;
 	const errors: string[] = [];
 
-	// Build handle→did lookup
-	const players = db
-		.prepare("SELECT did, handle FROM players")
-		.all() as { did: string; handle: string }[];
+	const players = db.prepare("SELECT did, handle FROM players").all() as {
+		did: string;
+		handle: string;
+	}[];
 	const handleToDid = new Map(players.map((p) => [p.handle, p.did]));
+	const knownDids = new Set(players.map((p) => p.did));
 
-	// Normalize handle: strip .bsky.social if needed for lookup
-	function resolveDid(handle: string): string | undefined {
-		if (handleToDid.has(handle)) return handleToDid.get(handle);
-		const full = handle.includes(".") ? handle : `${handle}.bsky.social`;
+	function resolveDid(handleOrDid: string): string | undefined {
+		const cleaned = handleOrDid.replace(/[.,;:!?]+$/, "");
+		if (cleaned.startsWith("did:") && knownDids.has(cleaned)) {
+			return cleaned;
+		}
+		if (handleToDid.has(cleaned)) return handleToDid.get(cleaned);
+		const full = cleaned.includes(".") ? cleaned : `${cleaned}.bsky.social`;
 		if (handleToDid.has(full)) return handleToDid.get(full);
-		// Try adding .bsky.social
-		const withSuffix = `${handle}.bsky.social`;
-		return handleToDid.get(withSuffix);
+		const withSuffix = `${cleaned}.bsky.social`;
+		if (handleToDid.has(withSuffix)) return handleToDid.get(withSuffix);
+		// Prefix match: "jkyu" → "jkyu06.bsky.social"
+		const low = cleaned.toLowerCase();
+		const prefixMatches = players.filter((p) =>
+			p.handle.toLowerCase().startsWith(low),
+		);
+		if (prefixMatches.length === 1) return prefixMatches[0]!.did;
+		return undefined;
 	}
 
 	for (let i = 0; i < updates.length; i++) {
@@ -127,7 +125,6 @@ export function applyUpdates(
 			continue;
 		}
 
-		// Find the matchup — could be stored in either direction
 		const matchup = db
 			.prepare(
 				`SELECT id, player0_did, on_play_verdict, on_draw_verdict
@@ -138,7 +135,12 @@ export function applyUpdates(
 				 )`,
 			)
 			.get(roundId, didA, didB, didB, didA) as
-			| { id: number; player0_did: string; on_play_verdict: string; on_draw_verdict: string }
+			| {
+					id: number;
+					player0_did: string;
+					on_play_verdict: string;
+					on_draw_verdict: string;
+			  }
 			| undefined;
 
 		if (!matchup) {
@@ -146,17 +148,14 @@ export function applyUpdates(
 			continue;
 		}
 
-		// Determine verdicts from p0's perspective
 		let playVerdict = update.play;
 		let drawVerdict = update.draw;
 		if (matchup.player0_did !== didA) {
-			// Flip: update was written from hA's perspective, but DB has hB as p0
 			const flip: Record<string, string> = { W: "L", L: "W", D: "D" };
 			playVerdict = flip[playVerdict] ?? playVerdict;
 			drawVerdict = flip[drawVerdict] ?? drawVerdict;
 		}
 
-		// Check if this is actually a change
 		if (
 			matchup.on_play_verdict === playVerdict &&
 			matchup.on_draw_verdict === drawVerdict
@@ -164,7 +163,11 @@ export function applyUpdates(
 			console.log(
 				`  Line ${i + 1}: ${hA} vs ${hB} already ${playVerdict}/${drawVerdict}, skipping`,
 			);
-			updates[i] = { ...update, status: "applied" as const, appliedAt: new Date().toISOString() };
+			updates[i] = {
+				...update,
+				status: "applied" as const,
+				appliedAt: new Date().toISOString(),
+			};
 			skipped++;
 			continue;
 		}
@@ -180,22 +183,24 @@ export function applyUpdates(
 		);
 
 		if (!dryRun) {
-			// Update verdicts on the matchup
-			db.prepare(
-				"UPDATE matchups SET on_play_verdict = ?, on_draw_verdict = ? WHERE id = ?",
-			).run(playVerdict, drawVerdict, matchup.id);
-
-			// Record the correction with audit trail
 			applyCorrection(
 				db,
 				matchup.id,
 				newOutcome,
-				null, // narrative
-				update.source.type === "bsky" ? update.source.uri : `conversation:${update.source.date}`,
+				null,
+				update.source.type === "bsky"
+					? update.source.uri
+					: `conversation:${update.source.date}`,
 				update.reason,
+				playVerdict,
+				drawVerdict,
 			);
 
-			updates[i] = { ...update, status: "applied" as const, appliedAt: new Date().toISOString() };
+			updates[i] = {
+				...update,
+				status: "applied" as const,
+				appliedAt: new Date().toISOString(),
+			};
 		}
 		applied++;
 	}

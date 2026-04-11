@@ -1,5 +1,4 @@
 import type Database from "better-sqlite3";
-// pattern: Imperative Shell
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
 	addJudge,
@@ -58,6 +57,11 @@ describe("rounds", () => {
 		updateRoundPhase(db, round.id, "submission");
 		const fetched = getRound(db, round.id);
 		expect(fetched?.phase).toBe("submission");
+	});
+
+	it("prevents creating a round while one is active", () => {
+		createRound(db);
+		expect(() => createRound(db)).toThrow("still in submission phase");
 	});
 });
 
@@ -169,6 +173,10 @@ describe("judges", () => {
 		addJudge(db, "did:plc:judge");
 		expect(isJudge(db, "did:plc:judge")).toBe(true);
 	});
+
+	it("throws when adding judge for unknown player", () => {
+		expect(() => addJudge(db, "did:plc:unknown")).toThrow("not found");
+	});
 });
 
 describe("corrections", () => {
@@ -263,5 +271,31 @@ describe("corrections", () => {
 
 		expect(m.onPlayVerdict).toBe("W");
 		expect(m.onDrawVerdict).toBe("D");
+	});
+
+	it("updates per-direction verdicts on correction", () => {
+		const round = createRound(db);
+		upsertPlayer(db, "did:plc:abc", "alice", null);
+		upsertPlayer(db, "did:plc:def", "bob", null);
+
+		const m = insertMatchup(
+			db,
+			round.id,
+			"did:plc:abc",
+			"did:plc:def",
+			"player0_wins",
+			null,
+			"{}",
+			null,
+			null,
+			"W",
+			"W",
+		);
+
+		applyCorrection(db, m.id, "WD", null, null, null, "W", "D");
+
+		const updated = getMatchupsForRound(db, round.id);
+		expect(updated[0]?.onPlayVerdict).toBe("W");
+		expect(updated[0]?.onDrawVerdict).toBe("D");
 	});
 });
