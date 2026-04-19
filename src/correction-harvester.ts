@@ -69,12 +69,6 @@ export function parseSingleCorrection(
 		lower.startsWith("more correction")
 	)
 		return null;
-	if (
-		!lower.includes("should") &&
-		!lower.includes("is ") &&
-		!lower.includes("vs")
-	)
-		return null;
 
 	// Extract mentioned handles — match full handles and short names
 	const shortNames = new Map<string, string>();

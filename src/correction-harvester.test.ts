@@ -145,6 +145,19 @@ describe("parseCorrection", () => {
 		expect(result!.playerB).toBe("achilleslaststand.bsky.social");
 		expect(result!.verdict).toBe("DL");
 	});
+
+	test("parses natural-language form without should/is/vs keyword", () => {
+		const result = parseCorrection(
+			"@nickchk.com WW @achilleslaststand.bsky.social — the aggro plan just overwhelms them",
+			"tomscud.bsky.social",
+			"at://test/nokeyword",
+			handles,
+		);
+		expect(result).not.toBeNull();
+		expect(result!.playerA).toBe("nickchk.com");
+		expect(result!.playerB).toBe("achilleslaststand.bsky.social");
+		expect(result!.verdict).toBe("WW");
+	});
 });
 
 describe("parseCorrections (multi)", () => {
