@@ -9,7 +9,7 @@ import type Database from "better-sqlite3";
 import type { ThreadReply } from "propter-bsky-kit";
 import { watchThread } from "propter-bsky-kit/thread-watcher";
 import type { ReviewStatus } from "./database.js";
-import { setReviewStatus } from "./database.js";
+import { getPlayer, getSubmissionsForRound, setReviewStatus } from "./database.js";
 import { appendUpdate, applyUpdates, readUpdates } from "./round-updates.js";
 import type { RoundUpdate } from "./round-updates.js";
 
@@ -28,6 +28,7 @@ export function parseCorrections(
 	authorHandle: string,
 	sourceUri: string,
 	allHandles: readonly string[],
+	cardOwners?: ReadonlyMap<string, string>,
 ): ParsedCorrection[] {
 	// Split on newlines and "VS" boundaries to handle multi-correction posts
 	const segments = text.split(/\n/).filter((s) => s.trim().length > 10);
@@ -37,15 +38,66 @@ export function parseCorrections(
 			authorHandle,
 			sourceUri,
 			allHandles,
+			cardOwners,
 		);
 		return single ? [single] : [];
 	}
 	const results: ParsedCorrection[] = [];
 	for (const seg of segments) {
-		const c = parseSingleCorrection(seg, authorHandle, sourceUri, allHandles);
+		const c = parseSingleCorrection(
+			seg,
+			authorHandle,
+			sourceUri,
+			allHandles,
+			cardOwners,
+		);
 		if (c) results.push(c);
 	}
 	return results;
+}
+
+/**
+ * Build a card-token → handle map from a round's submissions. Used to resolve
+ * card-name references in corrections ("Karakas WLs Magus" → elyv WL mutantmell).
+ * Only includes tokens of length ≥ 4 that uniquely identify one player's deck.
+ * Stopword-filtered to avoid false positives on common English words.
+ */
+export function buildCardOwnerMap(
+	submissions: readonly { playerHandle: string; cards: readonly string[] }[],
+): ReadonlyMap<string, string> {
+	const stopwords = new Set([
+		"lord", "with", "from", "when", "that", "this", "what", "your", "they",
+		"them", "were", "will", "into", "over", "have", "been", "just", "like",
+		"than", "then", "also", "both", "mind", "time", "turn", "play", "draw",
+		"card", "deck", "land", "mana", "life", "damage", "attack", "block",
+	]);
+	// token → set of handles that have a card containing it
+	const tokenToHandles = new Map<string, Set<string>>();
+	for (const sub of submissions) {
+		const handle = sub.playerHandle;
+		const seen = new Set<string>();
+		for (const card of sub.cards) {
+			for (const word of card.split(/[^A-Za-z]+/)) {
+				const w = word.toLowerCase();
+				if (w.length < 4 || stopwords.has(w)) continue;
+				if (seen.has(w)) continue;
+				seen.add(w);
+				let set = tokenToHandles.get(w);
+				if (!set) {
+					set = new Set();
+					tokenToHandles.set(w, set);
+				}
+				set.add(handle);
+			}
+		}
+	}
+	const result = new Map<string, string>();
+	for (const [token, handles] of tokenToHandles) {
+		if (handles.size === 1) {
+			result.set(token, [...handles][0]!);
+		}
+	}
+	return result;
 }
 
 /** Parse a single correction from text. Returns null if not a correction. */
@@ -54,6 +106,7 @@ export function parseSingleCorrection(
 	authorHandle: string,
 	sourceUri: string,
 	allHandles: readonly string[],
+	cardOwners?: ReadonlyMap<string, string>,
 ): ParsedCorrection | null {
 	// Normalize text
 	const t = text.trim();
@@ -81,13 +134,54 @@ export function parseSingleCorrection(
 		.sort((a, b) => b.length - a.length) // longest first to avoid partial matches
 		.map((h) => h.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
 	const mentionRegex = new RegExp(`@?(${patterns.join("|")})`, "gi");
-	const mentions = [...t.matchAll(mentionRegex)].map(
+	const rawMentions = [...t.matchAll(mentionRegex)].map(
 		(m) =>
 			shortNames.get(m[1]!.toLowerCase())?.toLowerCase() ?? m[1]!.toLowerCase(),
 	);
 
-	// Extract verdict pattern (WW, WL, LL, DD, WD, DL)
-	const verdictMatch = t.match(/\b([WwLlDd]{2})\b/);
+	// Also match card-name tokens → deck owner handles (preserves order with
+	// handle mentions, so "Karakas WLs Magus" → [elyv, mutantmell]).
+	const mentions: string[] = [];
+	if (cardOwners && cardOwners.size > 0) {
+		const cardTokenPattern = [...cardOwners.keys()]
+			.sort((a, b) => b.length - a.length)
+			.map((tok) => tok.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+			.join("|");
+		// Match handles OR card tokens in order of appearance. Card tokens match
+		// with a leading word boundary but allow trailing letters (e.g.
+		// "Stylusing" → "Stylus", "Regisaurs" → "Regisaur").
+		const combined = new RegExp(
+			`@?(${patterns.join("|")})|\\b(${cardTokenPattern})\\w*`,
+			"gi",
+		);
+		for (const m of t.matchAll(combined)) {
+			if (m[1]) {
+				mentions.push(
+					shortNames.get(m[1].toLowerCase())?.toLowerCase() ??
+						m[1].toLowerCase(),
+				);
+			} else if (m[2]) {
+				const owner = cardOwners.get(m[2].toLowerCase());
+				if (owner) mentions.push(owner.toLowerCase());
+			}
+		}
+	} else {
+		mentions.push(...rawMentions);
+	}
+
+	// Deduplicate while preserving order (one matchup = at most 2 distinct players)
+	const seenMentions = new Set<string>();
+	const dedupedMentions: string[] = [];
+	for (const m of mentions) {
+		if (!seenMentions.has(m)) {
+			seenMentions.add(m);
+			dedupedMentions.push(m);
+		}
+	}
+
+	// Extract verdict pattern (WW, WL, LL, DD, WD, DL). Trailing "s" allowed
+	// for natural forms like "WLs"/"LLs" — "Karakas WLs Magus".
+	const verdictMatch = t.match(/\b([WwLlDd]{2})s?\b/);
 	const verdict = verdictMatch?.[1]?.toUpperCase() ?? null;
 
 	if (!verdict) return null;
@@ -99,10 +193,10 @@ export function parseSingleCorrection(
 	const firstPerson =
 		/\b(my|i'm|i\s+am|i\s+think|i\s+can|i\s+don't|i\s+win|i\s+lose)\b/i.test(t);
 
-	if (mentions.length >= 2) {
+	if (dedupedMentions.length >= 2) {
 		// "@A should WW @B" or "@A is LL to @B"
-		playerA = mentions[0]!;
-		playerB = mentions[1]!;
+		playerA = dedupedMentions[0]!;
+		playerB = dedupedMentions[1]!;
 	} else {
 		// "VS. @X should be YY" — check context for who playerA is
 		const vsMatch = t.match(/vs\.?\s+@?([\w.-]+)/i);
@@ -110,10 +204,14 @@ export function parseSingleCorrection(
 			playerB = vsMatch[1]!.replace(/\.$/, "").toLowerCase();
 			// If first-person language or only one mention, author is playerA
 			playerA = authorHandle.toLowerCase();
-		} else if (mentions.length === 1) {
+		} else if (dedupedMentions.length === 1) {
 			// "in my matchup with @B" — author is one player
-			playerA = firstPerson ? authorHandle.toLowerCase() : mentions[0]!;
-			playerB = firstPerson ? mentions[0]! : authorHandle.toLowerCase();
+			playerA = firstPerson
+				? authorHandle.toLowerCase()
+				: dedupedMentions[0]!;
+			playerB = firstPerson
+				? dedupedMentions[0]!
+				: authorHandle.toLowerCase();
 		}
 	}
 
@@ -232,6 +330,16 @@ export async function harvestCorrections(
 	// Track which correction URIs have been confirmed (parentUri → matchupKey)
 	const correctionUriToMatchup = new Map<string, string>();
 
+	// Build card-token → handle map so card references like "Karakas WLs Magus"
+	// resolve to the decks' owners.
+	const submissions = getSubmissionsForRound(db, roundId);
+	const cardOwners = buildCardOwnerMap(
+		submissions.map((s) => ({
+			playerHandle: getPlayer(db, s.playerDid)?.handle ?? s.playerDid,
+			cards: [s.card1Name, s.card2Name, s.card3Name],
+		})),
+	);
+
 	const processReply = (reply: ThreadReply) => {
 		// Check for confirmation first (before correction parsing skips it)
 		if (isConfirmation(reply.text)) {
@@ -265,6 +373,7 @@ export async function harvestCorrections(
 			reply.authorHandle,
 			reply.uri,
 			allHandles,
+			cardOwners,
 		);
 
 		if (corrections.length === 0) {

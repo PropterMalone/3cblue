@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+	buildCardOwnerMap,
 	correctionToVerdicts,
 	isConfirmation,
 	parseSingleCorrection as parseCorrection,
@@ -157,6 +158,114 @@ describe("parseCorrection", () => {
 		expect(result!.playerA).toBe("nickchk.com");
 		expect(result!.playerB).toBe("achilleslaststand.bsky.social");
 		expect(result!.verdict).toBe("WW");
+	});
+
+	test("accepts trailing-s verdict forms (WLs, LLs, DDs)", () => {
+		const result = parseCorrection(
+			"@nickchk.com WLs @achilleslaststand.bsky.social on the play, loses on draw",
+			"tomscud.bsky.social",
+			"at://test/trailings",
+			handles,
+		);
+		expect(result).not.toBeNull();
+		expect(result!.verdict).toBe("WL");
+	});
+});
+
+describe("buildCardOwnerMap + card-name resolution", () => {
+	const cardOwners = buildCardOwnerMap([
+		{
+			playerHandle: "elyv.bsky.social",
+			cards: ["Karakas", "Lightstall Inquisitor", "Cenn's Tactician"],
+		},
+		{
+			playerHandle: "brythefryguy.bsky.social",
+			cards: ["Urza's Saga", "Sol Ring", "Tel-Jilad Stylus"],
+		},
+		{
+			playerHandle: "proptermalone.bsky.social",
+			cards: ["Jace, Wielder of Mysteries", "Sand Silos", "Mental Misstep"],
+		},
+		{
+			playerHandle: "tomscud.bsky.social",
+			cards: ["Swamp", "Dark Ritual", "Rotting Regisaur"],
+		},
+		{
+			playerHandle: "mutantmell.net",
+			cards: ["Crystal Vein", "Simian Spirit Guide", "Magus of the Moon"],
+		},
+	]);
+
+	test("maps distinctive tokens to their deck owners", () => {
+		expect(cardOwners.get("karakas")).toBe("elyv.bsky.social");
+		expect(cardOwners.get("magus")).toBe("mutantmell.net");
+		expect(cardOwners.get("regisaur")).toBe("tomscud.bsky.social");
+		expect(cardOwners.get("stylus")).toBe("brythefryguy.bsky.social");
+		expect(cardOwners.get("saga")).toBe("brythefryguy.bsky.social");
+	});
+
+	test("excludes stopwords and short tokens", () => {
+		// "of", "the", "and" are too short; stopwords like "play"/"draw" filtered
+		expect(cardOwners.has("of")).toBe(false);
+		expect(cardOwners.has("the")).toBe(false);
+	});
+
+	test("R10 propter: 'Karakas WLs Magus' → elyv WL mutantmell", () => {
+		const handles = [
+			"elyv.bsky.social",
+			"mutantmell.net",
+			"proptermalone.bsky.social",
+			"tomscud.bsky.social",
+			"brythefryguy.bsky.social",
+		];
+		const result = parseCorrection(
+			"Karakas WLs Magus, I think-- on the play they get the 2/1 down and even if the etb effect didn't do anything that would be enough to force a trade with Magus and then the Kithkin wins it.",
+			"proptermalone.bsky.social",
+			"at://test/r10-karakas-magus",
+			handles,
+			cardOwners,
+		);
+		expect(result).not.toBeNull();
+		expect(result!.playerA).toBe("elyv.bsky.social");
+		expect(result!.playerB).toBe("mutantmell.net");
+		expect(result!.verdict).toBe("WL");
+	});
+
+	test("R10 propter: 'DL for Karakas v Regisaur' → elyv DL tomscud", () => {
+		const handles = [
+			"elyv.bsky.social",
+			"tomscud.bsky.social",
+			"proptermalone.bsky.social",
+		];
+		const result = parseCorrection(
+			"on the play Karakas can draw with Regisaur-- they need 3x Tactician activations to get to 6 power, which happens on t5. DL for Karakas v Regisaur I think.",
+			"proptermalone.bsky.social",
+			"at://test/r10-karakas-regisaur",
+			handles,
+			cardOwners,
+		);
+		expect(result).not.toBeNull();
+		expect(result!.playerA).toBe("elyv.bsky.social");
+		expect(result!.playerB).toBe("tomscud.bsky.social");
+		expect(result!.verdict).toBe("DL");
+	});
+
+	test("R10 elyv: 'Karakas also LLs the Saga deck' → elyv LL bry", () => {
+		const handles = [
+			"elyv.bsky.social",
+			"brythefryguy.bsky.social",
+		];
+		const result = parseCorrection(
+			"Karakas also LLs the Saga deck because they get armies of enormous robots too fast.",
+			"elyv.bsky.social",
+			"at://test/r10-karakas-saga",
+			handles,
+			cardOwners,
+		);
+		expect(result).not.toBeNull();
+		expect(result!.playerA).toBe("elyv.bsky.social");
+		expect(result!.playerB).toBe("brythefryguy.bsky.social");
+		expect(result!.verdict).toBe("LL");
 	});
 });
 
