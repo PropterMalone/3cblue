@@ -1,0 +1,23 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "src/scripts/*.ts",
+    "src/feed/index.ts"
+  ],
+  "project": [
+    "src/**/*.ts"
+  ],
+  "ignoreExportsUsedInFile": true,
+  "ignoreUnresolved": [
+    "@3cblue/shared",
+    "./card-types.js",
+    "./database.js",
+    "./scryfall-client.js"
+  ],
+  "rules": {
+    "exports": "warn",
+    "types": "warn",
+    "unresolved": "warn",
+    "unlisted": "warn"
+  }
+}

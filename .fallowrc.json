@@ -1,0 +1,16 @@
+{
+  "entry": [
+    "src/main.ts",
+    "src/scripts/*.ts",
+    "src/feed/index.ts"
+  ],
+  "ignorePatterns": [
+    "dist/**",
+    "legacy/**",
+    "propter-bsky-kit/**",
+    "node_modules/**",
+    "**/*.test.ts",
+    "data/**",
+    "docs/**"
+  ]
+}
